@@ -61,7 +61,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"p_tableName": {
-											"value": "@item().p_table",
+											"value": "@item()",
 											"type": "Expression"
 										}
 									}
@@ -73,7 +73,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"p_tableName": {
-											"value": "@item().p_table",
+											"value": "@item()",
 											"type": "Expression"
 										}
 									}
