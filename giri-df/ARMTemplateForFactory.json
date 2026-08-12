@@ -1176,13 +1176,13 @@
 						"userProperties": [],
 						"typeProperties": {
 							"items": {
-								"value": "@pipeline().parameters.files",
+								"value": "@pipeline().parameters.p_tables",
 								"type": "Expression"
 							},
 							"isSequential": false,
 							"activities": [
 								{
-									"name": "MigrateOnPremFile",
+									"name": "MigrateSnowflakeToSnowflake",
 									"type": "Copy",
 									"dependsOn": [],
 									"policy": {
@@ -1195,40 +1195,41 @@
 									"userProperties": [],
 									"typeProperties": {
 										"source": {
-											"type": "DelimitedTextSource",
-											"storeSettings": {
-												"type": "FileServerReadSettings",
-												"recursive": true,
-												"enablePartitionDiscovery": false
-											},
-											"formatSettings": {
-												"type": "DelimitedTextReadSettings"
+											"type": "SnowflakeV2Source",
+											"exportSettings": {
+												"type": "SnowflakeExportCopyCommand"
 											}
 										},
 										"sink": {
-											"type": "DelimitedTextSink",
-											"storeSettings": {
-												"type": "AzureBlobFSWriteSettings"
+											"type": "SnowflakeV2Sink",
+											"preCopyScript": {
+												"value": "@concat(\n    'CREATE TABLE IF NOT EXISTS MY_DATABASE.BRONZE.', item(), ' LIKE MY_DATABASE.PUBLIC.', item(), ';'\n)",
+												"type": "Expression"
 											},
-											"formatSettings": {
-												"type": "DelimitedTextWriteSettings",
-												"quoteAllText": true,
-												"fileExtension": ".txt"
+											"importSettings": {
+												"type": "SnowflakeImportCopyCommand"
 											}
 										},
-										"enableStaging": false,
+										"enableStaging": true,
+										"stagingSettings": {
+											"linkedServiceName": {
+												"referenceName": "ls_blobstorage",
+												"type": "LinkedServiceReference"
+											},
+											"path": "adf-snowflake-staging"
+										},
 										"translator": {
-											"value": "@if(equals(item().file_name, 'DimPassenger.csv'),pipeline().parameters.p_mapping_passenger, if(equals(item().file_name, 'DimFlight.csv'),pipeline().parameters.p_mapping_flight, pipeline().parameters.p_mapping_airline))",
+											"value": "@if(equals(item(), 'DIMPASSENGER'),pipeline().parameters.p_mapping_passenger, if(equals(item(), 'DIMFLIGHT'),pipeline().parameters.p_mapping_flight, pipeline().parameters.p_mapping_airline))",
 											"type": "Expression"
 										}
 									},
 									"inputs": [
 										{
-											"referenceName": "ds_onprem_src_dynamic",
+											"referenceName": "ds_snowflake_dynamic_src",
 											"type": "DatasetReference",
 											"parameters": {
-												"p_file_name": {
-													"value": "@item().file_name",
+												"p_table": {
+													"value": "@item()",
 													"type": "Expression"
 												}
 											}
@@ -1236,11 +1237,11 @@
 									],
 									"outputs": [
 										{
-											"referenceName": "ds_onprem_sink_dynamic_csv",
+											"referenceName": "ds_snowflake_dynamic_sink",
 											"type": "DatasetReference",
 											"parameters": {
-												"p_filename": {
-													"value": "@item().file_name",
+												"p_table": {
+													"value": "@item()",
 													"type": "Expression"
 												}
 											}
@@ -1255,27 +1256,12 @@
 					"elapsedTimeMetric": {}
 				},
 				"parameters": {
-					"files": {
+					"p_tables": {
 						"type": "array",
 						"defaultValue": [
-							{
-								"source_schema": "PUBLIC",
-								"source_table": "DIMAIRLINE",
-								"sink_schema": "BRONZE",
-								"sink_table": "DIMAIRLINE"
-							},
-							{
-								"source_schema": "PUBLIC",
-								"source_table": "DIMFLIGHT",
-								"sink_schema": "BRONZE",
-								"sink_table": "DIMFLIGHT"
-							},
-							{
-								"source_schema": "PUBLIC",
-								"source_table": "DIMPASSENGER",
-								"sink_schema": "BRONZE",
-								"sink_table": "DIMPASSENGER"
-							}
+							"DIMAIRLINE",
+							"DIMFLIGHT",
+							"DIMPASSENGER"
 						]
 					},
 					"p_mapping_airline": {
@@ -1466,8 +1452,9 @@
 				"lastPublishTime": "2026-08-10T17:05:16Z"
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/ds_onprem_src_dynamic')]",
-				"[concat(variables('factoryId'), '/datasets/ds_onprem_sink_dynamic_csv')]"
+				"[concat(variables('factoryId'), '/datasets/ds_snowflake_dynamic_src')]",
+				"[concat(variables('factoryId'), '/datasets/ds_snowflake_dynamic_sink')]",
+				"[concat(variables('factoryId'), '/linkedServices/ls_blobstorage')]"
 			]
 		},
 		{
@@ -2054,6 +2041,102 @@
 				"typeProperties": {
 					"schema": "BRONZE",
 					"table": "DIMAIRLINE"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Snowflake1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_snowflake_dynamic_sink')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Snowflake1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"p_table": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "AIRLINE_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "AIRLINE_NAME",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "COUNTRY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					}
+				],
+				"typeProperties": {
+					"schema": "BRONZE",
+					"table": {
+						"value": "@dataset().p_table",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Snowflake1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_snowflake_dynamic_src')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Snowflake1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"p_table": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "AIRLINE_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "AIRLINE_NAME",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "COUNTRY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					}
+				],
+				"typeProperties": {
+					"schema": "PUBLIC",
+					"table": {
+						"value": "@dataset().p_table",
+						"type": "Expression"
+					}
 				}
 			},
 			"dependsOn": [
