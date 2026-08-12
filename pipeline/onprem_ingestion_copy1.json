@@ -9,13 +9,13 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@pipeline().parameters.files",
+						"value": "@pipeline().parameters.p_tables",
 						"type": "Expression"
 					},
 					"isSequential": false,
 					"activities": [
 						{
-							"name": "MigrateOnPremFile",
+							"name": "MigrateSnowflakeToSnowflake",
 							"type": "Copy",
 							"dependsOn": [],
 							"policy": {
@@ -28,40 +28,41 @@
 							"userProperties": [],
 							"typeProperties": {
 								"source": {
-									"type": "DelimitedTextSource",
-									"storeSettings": {
-										"type": "FileServerReadSettings",
-										"recursive": true,
-										"enablePartitionDiscovery": false
-									},
-									"formatSettings": {
-										"type": "DelimitedTextReadSettings"
+									"type": "SnowflakeV2Source",
+									"exportSettings": {
+										"type": "SnowflakeExportCopyCommand"
 									}
 								},
 								"sink": {
-									"type": "DelimitedTextSink",
-									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
+									"type": "SnowflakeV2Sink",
+									"preCopyScript": {
+										"value": "@concat(\n    'CREATE TABLE IF NOT EXISTS MY_DATABASE.BRONZE.', item(), ' LIKE MY_DATABASE.PUBLIC.', item(), ';'\n)",
+										"type": "Expression"
 									},
-									"formatSettings": {
-										"type": "DelimitedTextWriteSettings",
-										"quoteAllText": true,
-										"fileExtension": ".txt"
+									"importSettings": {
+										"type": "SnowflakeImportCopyCommand"
 									}
 								},
-								"enableStaging": false,
+								"enableStaging": true,
+								"stagingSettings": {
+									"linkedServiceName": {
+										"referenceName": "ls_blobstorage",
+										"type": "LinkedServiceReference"
+									},
+									"path": "adf-snowflake-staging"
+								},
 								"translator": {
-									"value": "@if(equals(item().file_name, 'DimPassenger.csv'),pipeline().parameters.p_mapping_passenger, if(equals(item().file_name, 'DimFlight.csv'),pipeline().parameters.p_mapping_flight, pipeline().parameters.p_mapping_airline))",
+									"value": "@if(equals(item(), 'DIMPASSENGER'),pipeline().parameters.p_mapping_passenger, if(equals(item(), 'DIMFLIGHT'),pipeline().parameters.p_mapping_flight, pipeline().parameters.p_mapping_airline))",
 									"type": "Expression"
 								}
 							},
 							"inputs": [
 								{
-									"referenceName": "ds_onprem_src_dynamic",
+									"referenceName": "ds_snowflake_dynamic_src",
 									"type": "DatasetReference",
 									"parameters": {
-										"p_file_name": {
-											"value": "@item().file_name",
+										"p_table": {
+											"value": "@item()",
 											"type": "Expression"
 										}
 									}
@@ -69,11 +70,11 @@
 							],
 							"outputs": [
 								{
-									"referenceName": "ds_onprem_sink_dynamic_csv",
+									"referenceName": "ds_snowflake_dynamic_sink",
 									"type": "DatasetReference",
 									"parameters": {
-										"p_filename": {
-											"value": "@item().file_name",
+										"p_table": {
+											"value": "@item()",
 											"type": "Expression"
 										}
 									}
@@ -85,27 +86,12 @@
 			}
 		],
 		"parameters": {
-			"files": {
+			"p_tables": {
 				"type": "array",
 				"defaultValue": [
-					{
-						"source_schema": "PUBLIC",
-						"source_table": "DIMAIRLINE",
-						"sink_schema": "BRONZE",
-						"sink_table": "DIMAIRLINE"
-					},
-					{
-						"source_schema": "PUBLIC",
-						"source_table": "DIMFLIGHT",
-						"sink_schema": "BRONZE",
-						"sink_table": "DIMFLIGHT"
-					},
-					{
-						"source_schema": "PUBLIC",
-						"source_table": "DIMPASSENGER",
-						"sink_schema": "BRONZE",
-						"sink_table": "DIMPASSENGER"
-					}
+					"DIMAIRLINE",
+					"DIMFLIGHT",
+					"DIMPASSENGER"
 				]
 			},
 			"p_mapping_airline": {
