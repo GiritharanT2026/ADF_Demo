@@ -84,6 +84,150 @@
 					"DIMFLIGHT",
 					"DIMPASSENGER"
 				]
+			},
+			"p_dimairline": {
+				"type": "object",
+				"defaultValue": {
+					"type": "TabularTranslator",
+					"mappings": [
+						{
+							"source": {
+								"name": "AIRLINE_ID",
+								"type": "Decimal"
+							},
+							"sink": {
+								"name": "AIRLINE_ID",
+								"type": "Decimal"
+							}
+						},
+						{
+							"source": {
+								"name": "AIRLINE_NAME",
+								"type": "String"
+							},
+							"sink": {
+								"name": "AIRLINE_NAME",
+								"type": "String"
+							}
+						},
+						{
+							"source": {
+								"name": "COUNTRY",
+								"type": "String"
+							},
+							"sink": {
+								"name": "COUNTRY",
+								"type": "String"
+							}
+						}
+					]
+				}
+			},
+			"p_dimflight": {
+				"type": "object",
+				"defaultValue": {
+					"type": "TabularTranslator",
+					"mappings": [
+						{
+							"source": {
+								"name": "FLIGHT_ID",
+								"type": "Decimal"
+							},
+							"sink": {
+								"name": "FLIGHT_ID",
+								"type": "Decimal"
+							}
+						},
+						{
+							"source": {
+								"name": "FLIGHT_NUMBER",
+								"type": "String"
+							},
+							"sink": {
+								"name": "FLIGHT_NUMBER",
+								"type": "String"
+							}
+						},
+						{
+							"source": {
+								"name": "DEPARTURE_TIME",
+								"type": "TimeSpan"
+							},
+							"sink": {
+								"name": "DEPARTURE_TIME",
+								"type": "TimeSpan"
+							}
+						},
+						{
+							"source": {
+								"name": "ARRIVAL_TIME",
+								"type": "TimeSpan"
+							},
+							"sink": {
+								"name": "ARRIVAL_TIME",
+								"type": "TimeSpan"
+							}
+						}
+					]
+				}
+			},
+			"p_dimpassenger": {
+				"type": "object",
+				"defaultValue": {
+					"type": "TabularTranslator",
+					"mappings": [
+						{
+							"source": {
+								"name": "PASSENGER_ID",
+								"type": "Decimal"
+							},
+							"sink": {
+								"name": "PASSENGER_ID",
+								"type": "Decimal"
+							}
+						},
+						{
+							"source": {
+								"name": "FULL_NAME",
+								"type": "String"
+							},
+							"sink": {
+								"name": "FULL_NAME",
+								"type": "String"
+							}
+						},
+						{
+							"source": {
+								"name": "GENDER",
+								"type": "String"
+							},
+							"sink": {
+								"name": "GENDER",
+								"type": "String"
+							}
+						},
+						{
+							"source": {
+								"name": "AGE",
+								"type": "Decimal"
+							},
+							"sink": {
+								"name": "AGE",
+								"type": "Decimal"
+							}
+						},
+						{
+							"source": {
+								"name": "COUNTRY",
+								"type": "String"
+							},
+							"sink": {
+								"name": "COUNTRY",
+								"type": "String"
+							}
+						}
+					]
+				}
 			}
 		},
 		"annotations": []
