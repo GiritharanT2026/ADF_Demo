@@ -1,0 +1,91 @@
+{
+	"name": "snowflakeReadAndWrite",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEachTable",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.p_table",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "copyDataSnowToSnow",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SnowflakeV2Source",
+									"exportSettings": {
+										"type": "SnowflakeExportCopyCommand"
+									}
+								},
+								"sink": {
+									"type": "SnowflakeV2Sink",
+									"importSettings": {
+										"type": "SnowflakeImportCopyCommand"
+									}
+								},
+								"enableStaging": true,
+								"stagingSettings": {
+									"linkedServiceName": {
+										"referenceName": "ls_blobstorage",
+										"type": "LinkedServiceReference"
+									},
+									"path": "adf-snowflake-staging"
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "ds_snowflake_dynamic_src",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_tableName": {
+											"value": "@pipeline().parameters.p_table",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "ds_snowflake_dynamic_sink",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_tableName": {
+											"value": "@pipeline().parameters.p_table",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"p_table": {
+				"type": "array",
+				"defaultValue": [
+					"DIMAIRLINE",
+					"DIMFLIGHT",
+					"DIMPASSENGER"
+				]
+			}
+		},
+		"annotations": []
+	}
+}
