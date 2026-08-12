@@ -34,6 +34,10 @@
 								},
 								"sink": {
 									"type": "SnowflakeV2Sink",
+									"preCopyScript": {
+										"value": "@concat(\n    'CREATE TABLE IF NOT EXISTS MY_DATABASE.BRONZE.',item(),' LIKE MY_DATABASE.PUBLIC.',item(),';'\n)",
+										"type": "Expression"
+									},
 									"importSettings": {
 										"type": "SnowflakeImportCopyCommand"
 									}
@@ -45,6 +49,10 @@
 										"type": "LinkedServiceReference"
 									},
 									"path": "adf-snowflake-staging"
+								},
+								"translator": {
+									"value": "@if(equals(item(), 'DIMAIRLINE'), pipeline().parameters.p_mapping_dimairline, if(equals(item(), 'DIMFLIGHT'), pipeline().parameters.p_mapping_dimflight, pipeline().parameters.p_mapping_dimpassenger))",
+									"type": "Expression"
 								}
 							},
 							"inputs": [
@@ -53,7 +61,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"p_tableName": {
-											"value": "@pipeline().parameters.p_table",
+											"value": "@item().p_table",
 											"type": "Expression"
 										}
 									}
@@ -65,7 +73,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"p_tableName": {
-											"value": "@pipeline().parameters.p_table",
+											"value": "@item().p_table",
 											"type": "Expression"
 										}
 									}
@@ -85,7 +93,7 @@
 					"DIMPASSENGER"
 				]
 			},
-			"p_dimairline": {
+			"p_mapping_dimairline": {
 				"type": "object",
 				"defaultValue": {
 					"type": "TabularTranslator",
@@ -123,7 +131,7 @@
 					]
 				}
 			},
-			"p_dimflight": {
+			"p_mapping_dimflight": {
 				"type": "object",
 				"defaultValue": {
 					"type": "TabularTranslator",
@@ -171,7 +179,7 @@
 					]
 				}
 			},
-			"p_dimpassenger": {
+			"p_mapping_dimpassenger": {
 				"type": "object",
 				"defaultValue": {
 					"type": "TabularTranslator",
