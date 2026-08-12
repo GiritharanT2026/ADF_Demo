@@ -1,5 +1,5 @@
 {
-	"name": "onprem_ingestion_copy1",
+	"name": "snowflake_ingestion",
 	"properties": {
 		"activities": [
 			{
