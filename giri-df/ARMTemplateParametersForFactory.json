@@ -5,6 +5,9 @@
 		"factoryName": {
 			"value": "giri-df"
 		},
+		"Snowflake1_password": {
+			"value": ""
+		},
 		"ls_LakeStorage_accountKey": {
 			"value": ""
 		},
@@ -13,6 +16,12 @@
 		},
 		"ls_onprem_file_password": {
 			"value": ""
+		},
+		"Snowflake1_properties_typeProperties_database": {
+			"value": "MY_DATABASE"
+		},
+		"Snowflake1_properties_typeProperties_role": {
+			"value": "ACCOUNTADMIN"
 		},
 		"ls_LakeStorage_properties_typeProperties_url": {
 			"value": "https://giri27storage.dfs.core.windows.net/"
@@ -25,6 +34,9 @@
 		},
 		"ls_azuresql_properties_typeProperties_userName": {
 			"value": "adminadmin"
+		},
+		"ls_blobstorage_sasUri": {
+			"value": ""
 		},
 		"ls_github_properties_typeProperties_url": {
 			"value": "https://raw.githubusercontent.com/"

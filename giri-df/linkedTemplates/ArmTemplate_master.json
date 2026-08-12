@@ -7,6 +7,10 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "giri-df"
 		},
+		"Snowflake1_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'Snowflake1'"
+		},
 		"ls_LakeStorage_accountKey": {
 			"type": "secureString",
 			"metadata": "Secure string for 'accountKey' of 'ls_LakeStorage'"
@@ -18,6 +22,14 @@
 		"ls_onprem_file_password": {
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'ls_onprem_file'"
+		},
+		"Snowflake1_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "MY_DATABASE"
+		},
+		"Snowflake1_properties_typeProperties_role": {
+			"type": "string",
+			"defaultValue": "ACCOUNTADMIN"
 		},
 		"ls_LakeStorage_properties_typeProperties_url": {
 			"type": "string",
@@ -34,6 +46,10 @@
 		"ls_azuresql_properties_typeProperties_userName": {
 			"type": "string",
 			"defaultValue": "adminadmin"
+		},
+		"ls_blobstorage_sasUri": {
+			"type": "secureString",
+			"metadata": "Secure string for 'sasUri' of 'ls_blobstorage'"
 		},
 		"ls_github_properties_typeProperties_url": {
 			"type": "string",
@@ -74,14 +90,20 @@
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
 					},
+					"Snowflake1_password": {
+						"value": "[parameters('Snowflake1_password')]"
+					},
 					"ls_LakeStorage_accountKey": {
 						"value": "[parameters('ls_LakeStorage_accountKey')]"
 					},
 					"ls_azuresql_password": {
 						"value": "[parameters('ls_azuresql_password')]"
 					},
-					"ls_onprem_file_password": {
-						"value": "[parameters('ls_onprem_file_password')]"
+					"Snowflake1_properties_typeProperties_database": {
+						"value": "[parameters('Snowflake1_properties_typeProperties_database')]"
+					},
+					"Snowflake1_properties_typeProperties_role": {
+						"value": "[parameters('Snowflake1_properties_typeProperties_role')]"
 					},
 					"ls_LakeStorage_properties_typeProperties_url": {
 						"value": "[parameters('ls_LakeStorage_properties_typeProperties_url')]"
@@ -95,14 +117,11 @@
 					"ls_azuresql_properties_typeProperties_userName": {
 						"value": "[parameters('ls_azuresql_properties_typeProperties_userName')]"
 					},
+					"ls_blobstorage_sasUri": {
+						"value": "[parameters('ls_blobstorage_sasUri')]"
+					},
 					"ls_github_properties_typeProperties_url": {
 						"value": "[parameters('ls_github_properties_typeProperties_url')]"
-					},
-					"ls_onprem_file_properties_typeProperties_host": {
-						"value": "[parameters('ls_onprem_file_properties_typeProperties_host')]"
-					},
-					"ls_onprem_file_properties_typeProperties_userId": {
-						"value": "[parameters('ls_onprem_file_properties_typeProperties_userId')]"
 					}
 				}
 			},
@@ -121,6 +140,15 @@
 				"parameters": {
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
+					},
+					"ls_onprem_file_password": {
+						"value": "[parameters('ls_onprem_file_password')]"
+					},
+					"ls_onprem_file_properties_typeProperties_host": {
+						"value": "[parameters('ls_onprem_file_properties_typeProperties_host')]"
+					},
+					"ls_onprem_file_properties_typeProperties_userId": {
+						"value": "[parameters('ls_onprem_file_properties_typeProperties_userId')]"
 					}
 				}
 			},
