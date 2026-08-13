@@ -145,6 +145,67 @@
 						"type": "DatasetReference"
 					}
 				]
+			},
+			{
+				"name": "Copy data1",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy_Bronze_To_Staging",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SnowflakeV2Source",
+						"query": {
+							"value": "SELECT\n    MAX(INGESTION_TIMESTAMP) AS lastProcessedTimestamp\nFROM BRONZE.DIMAIRLINE\nWHERE INGESTION_TIMESTAMP >\n'@{activity('Lookup_Watermark').output.firstRow.lastProcessedTimestamp}'",
+							"type": "Expression"
+						},
+						"exportSettings": {
+							"type": "SnowflakeExportCopyCommand"
+						}
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "ls_blobstorage_snowflakeStaging",
+							"type": "LinkedServiceReference"
+						},
+						"path": "snowflake/staging"
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_bronze_to_silver_src",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_updateJson_broToSil",
+						"type": "DatasetReference"
+					}
+				]
 			}
 		],
 		"annotations": []
