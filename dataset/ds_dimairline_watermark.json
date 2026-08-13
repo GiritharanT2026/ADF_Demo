@@ -1,0 +1,30 @@
+{
+	"name": "ds_dimairline_watermark",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_ADLS_snowflake",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "DIMAIRLINE_watermark.json",
+				"folderPath": "control",
+				"fileSystem": "snowflake"
+			}
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"pipelineName": {
+					"type": "string"
+				},
+				"lastProcessedTimestamp": {
+					"type": "string"
+				}
+			}
+		}
+	}
+}
