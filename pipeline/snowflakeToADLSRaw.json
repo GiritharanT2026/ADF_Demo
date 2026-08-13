@@ -1,0 +1,111 @@
+{
+	"name": "snowflakeToADLSRaw",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_DimAirline_To_Raw",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SnowflakeV2Source",
+						"exportSettings": {
+							"type": "SnowflakeExportCopyCommand"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "ls_blobstorage_snowflakeStaging",
+							"type": "LinkedServiceReference"
+						},
+						"path": "snowflake/staging"
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "AIRLINE_ID",
+									"type": "Decimal",
+									"physicalType": "NUMBER",
+									"scale": 0,
+									"precision": 38
+								},
+								"sink": {
+									"name": "AIRLINE_ID",
+									"type": "String",
+									"physicalType": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "AIRLINE_NAME",
+									"type": "String",
+									"physicalType": "VARCHAR"
+								},
+								"sink": {
+									"name": "AIRLINE_NAME",
+									"type": "String",
+									"physicalType": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "COUNTRY",
+									"type": "String",
+									"physicalType": "VARCHAR"
+								},
+								"sink": {
+									"name": "COUNTRY",
+									"type": "String",
+									"physicalType": "String"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_copyCode_poc_src",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_ADFtoADLS_raw_csv_dynamic",
+						"type": "DatasetReference",
+						"parameters": {
+							"p_file_name": "DIMAIRLINE.csv"
+						}
+					}
+				]
+			}
+		],
+		"annotations": []
+	}
+}

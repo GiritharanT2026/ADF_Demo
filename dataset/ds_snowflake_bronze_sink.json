@@ -1,5 +1,5 @@
 {
-	"name": "ds_copyCode_poc_src",
+	"name": "ds_snowflake_bronze_sink",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "ls_snowflake_connection",
@@ -9,32 +9,38 @@
 		"type": "SnowflakeV2Table",
 		"schema": [
 			{
-				"name": "FLIGHT_ID",
-				"type": "NUMBER",
-				"precision": 38,
-				"scale": 0
-			},
-			{
-				"name": "FLIGHT_NUMBER",
+				"name": "AIRLINE_ID",
 				"type": "VARCHAR",
 				"precision": 0,
 				"scale": 0
 			},
 			{
-				"name": "DEPARTURE_TIME",
-				"type": "TIME",
+				"name": "AIRLINE_NAME",
+				"type": "VARCHAR",
 				"precision": 0,
-				"scale": 9
+				"scale": 0
 			},
 			{
-				"name": "ARRIVAL_TIME",
-				"type": "TIME",
+				"name": "COUNTRY",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "SOURCE_FILE_NAME",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "INGESTION_TIMESTAMP",
+				"type": "TIMESTAMP_NTZ",
 				"precision": 0,
 				"scale": 9
 			}
 		],
 		"typeProperties": {
-			"schema": "PUBLIC",
+			"schema": "BRONZE",
 			"table": "DIMAIRLINE"
 		}
 	}
