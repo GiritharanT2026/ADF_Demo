@@ -30,7 +30,7 @@
 						"referenceName": "ds_dimairline_watermark",
 						"type": "DatasetReference"
 					},
-					"firstRowOnly": false
+					"firstRowOnly": true
 				}
 			},
 			{
@@ -56,18 +56,92 @@
 					"source": {
 						"type": "SnowflakeV2Source",
 						"query": {
-							"value": "SELECT AIRLINE_ID, AIRLINE_NAME, COUNTRY, SOURCE_FILE_NAME, INGESTION_TIMESTAMP FROM BRONZE.DIMAIRLINE WHERE INGESTION_TIMESTAMP > @activi",
+							"value": "SELECT AIRLINE_ID, AIRLINE_NAME, COUNTRY, SOURCE_FILE_NAME, INGESTION_TIMESTAMP FROM BRONZE.DIMAIRLINE WHERE INGESTION_TIMESTAMP > '@{activity('Lookup_Watermark').output.firstRow.lastProcessedTimestamp}'",
 							"type": "Expression"
 						},
 						"exportSettings": {
 							"type": "SnowflakeExportCopyCommand"
 						}
 					},
-					"enableStaging": false
+					"sink": {
+						"type": "SnowflakeV2Sink",
+						"importSettings": {
+							"type": "SnowflakeImportCopyCommand"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "ls_blobstorage_snowflakeStaging",
+							"type": "LinkedServiceReference"
+						},
+						"path": "snowflake/staging"
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "AIRLINE_ID",
+									"type": "String"
+								},
+								"sink": {
+									"name": "AIRLINE_ID",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "AIRLINE_NAME",
+									"type": "String"
+								},
+								"sink": {
+									"name": "AIRLINE_NAME",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "COUNTRY",
+									"type": "String"
+								},
+								"sink": {
+									"name": "COUNTRY",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "SOURCE_FILE_NAME",
+									"type": "String"
+								},
+								"sink": {
+									"name": "SOURCE_FILE_NAME",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "INGESTION_TIMESTAMP",
+									"type": "DateTime"
+								},
+								"sink": {
+									"name": "INGESTION_TIMESTAMP",
+									"type": "DateTime"
+								}
+							}
+						]
+					}
 				},
 				"inputs": [
 					{
-						"referenceName": "ds_bronze_to_staging",
+						"referenceName": "ds_bronze_to_silver_src",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_bronze_to_silver_sink",
 						"type": "DatasetReference"
 					}
 				]

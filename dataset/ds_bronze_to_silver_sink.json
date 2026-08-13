@@ -1,5 +1,5 @@
 {
-	"name": "ds_bronze_to_silver_src",
+	"name": "ds_bronze_to_silver_sink",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "ls_snowflake_connection",
@@ -40,7 +40,7 @@
 			}
 		],
 		"typeProperties": {
-			"schema": "BRONZE",
+			"schema": "SILVER",
 			"table": "DIMAIRLINE"
 		}
 	}
