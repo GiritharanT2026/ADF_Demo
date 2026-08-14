@@ -11,6 +11,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'Snowflake1'"
 		},
+		"ls_ADLS_snowflake_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'ls_ADLS_snowflake'"
+		},
 		"ls_LakeStorage_accountKey": {
 			"type": "secureString",
 			"metadata": "Secure string for 'accountKey' of 'ls_LakeStorage'"
@@ -23,6 +27,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'ls_onprem_file'"
 		},
+		"ls_snowflake_connection_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_snowflake_connection'"
+		},
 		"Snowflake1_properties_typeProperties_database": {
 			"type": "string",
 			"defaultValue": "MY_DATABASE"
@@ -30,6 +38,10 @@
 		"Snowflake1_properties_typeProperties_role": {
 			"type": "string",
 			"defaultValue": "ACCOUNTADMIN"
+		},
+		"ls_ADLS_snowflake_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://giri27storage.dfs.core.windows.net/"
 		},
 		"ls_LakeStorage_properties_typeProperties_url": {
 			"type": "string",
@@ -51,6 +63,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'sasUri' of 'ls_blobstorage'"
 		},
+		"ls_blobstorage_snowflakeStaging_sasUri": {
+			"type": "secureString",
+			"metadata": "Secure string for 'sasUri' of 'ls_blobstorage_snowflakeStaging'"
+		},
 		"ls_github_properties_typeProperties_url": {
 			"type": "string",
 			"defaultValue": "https://raw.githubusercontent.com/"
@@ -62,6 +78,14 @@
 		"ls_onprem_file_properties_typeProperties_userId": {
 			"type": "string",
 			"defaultValue": "kvtgiritharan2026@outlook.com"
+		},
+		"ls_snowflake_connection_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "MY_DATABASE"
+		},
+		"ls_snowflake_connection_properties_typeProperties_role": {
+			"type": "string",
+			"defaultValue": "ACCOUNTADMIN"
 		},
 		"containerUri": {
 			"type": "string",
@@ -93,17 +117,26 @@
 					"Snowflake1_password": {
 						"value": "[parameters('Snowflake1_password')]"
 					},
+					"ls_ADLS_snowflake_accountKey": {
+						"value": "[parameters('ls_ADLS_snowflake_accountKey')]"
+					},
 					"ls_LakeStorage_accountKey": {
 						"value": "[parameters('ls_LakeStorage_accountKey')]"
 					},
 					"ls_azuresql_password": {
 						"value": "[parameters('ls_azuresql_password')]"
 					},
+					"ls_snowflake_connection_password": {
+						"value": "[parameters('ls_snowflake_connection_password')]"
+					},
 					"Snowflake1_properties_typeProperties_database": {
 						"value": "[parameters('Snowflake1_properties_typeProperties_database')]"
 					},
 					"Snowflake1_properties_typeProperties_role": {
 						"value": "[parameters('Snowflake1_properties_typeProperties_role')]"
+					},
+					"ls_ADLS_snowflake_properties_typeProperties_url": {
+						"value": "[parameters('ls_ADLS_snowflake_properties_typeProperties_url')]"
 					},
 					"ls_LakeStorage_properties_typeProperties_url": {
 						"value": "[parameters('ls_LakeStorage_properties_typeProperties_url')]"
@@ -120,8 +153,17 @@
 					"ls_blobstorage_sasUri": {
 						"value": "[parameters('ls_blobstorage_sasUri')]"
 					},
+					"ls_blobstorage_snowflakeStaging_sasUri": {
+						"value": "[parameters('ls_blobstorage_snowflakeStaging_sasUri')]"
+					},
 					"ls_github_properties_typeProperties_url": {
 						"value": "[parameters('ls_github_properties_typeProperties_url')]"
+					},
+					"ls_snowflake_connection_properties_typeProperties_database": {
+						"value": "[parameters('ls_snowflake_connection_properties_typeProperties_database')]"
+					},
+					"ls_snowflake_connection_properties_typeProperties_role": {
+						"value": "[parameters('ls_snowflake_connection_properties_typeProperties_role')]"
 					}
 				}
 			},
@@ -154,6 +196,26 @@
 			},
 			"dependsOn": [
 				"[resourceId('Microsoft.Resources/deployments', 'giri-df_ArmTemplate_0')]"
+			]
+		},
+		{
+			"name": "giri-df_ArmTemplate_2",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_2.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'giri-df_ArmTemplate_1')]"
 			]
 		}
 	]

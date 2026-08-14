@@ -8,6 +8,9 @@
 		"Snowflake1_password": {
 			"value": ""
 		},
+		"ls_ADLS_snowflake_accountKey": {
+			"value": ""
+		},
 		"ls_LakeStorage_accountKey": {
 			"value": ""
 		},
@@ -17,11 +20,17 @@
 		"ls_onprem_file_password": {
 			"value": ""
 		},
+		"ls_snowflake_connection_password": {
+			"value": ""
+		},
 		"Snowflake1_properties_typeProperties_database": {
 			"value": "MY_DATABASE"
 		},
 		"Snowflake1_properties_typeProperties_role": {
 			"value": "ACCOUNTADMIN"
+		},
+		"ls_ADLS_snowflake_properties_typeProperties_url": {
+			"value": "https://giri27storage.dfs.core.windows.net/"
 		},
 		"ls_LakeStorage_properties_typeProperties_url": {
 			"value": "https://giri27storage.dfs.core.windows.net/"
@@ -38,6 +47,9 @@
 		"ls_blobstorage_sasUri": {
 			"value": ""
 		},
+		"ls_blobstorage_snowflakeStaging_sasUri": {
+			"value": ""
+		},
 		"ls_github_properties_typeProperties_url": {
 			"value": "https://raw.githubusercontent.com/"
 		},
@@ -46,6 +58,12 @@
 		},
 		"ls_onprem_file_properties_typeProperties_userId": {
 			"value": "kvtgiritharan2026@outlook.com"
+		},
+		"ls_snowflake_connection_properties_typeProperties_database": {
+			"value": "MY_DATABASE"
+		},
+		"ls_snowflake_connection_properties_typeProperties_role": {
+			"value": "ACCOUNTADMIN"
 		}
 	}
 }
