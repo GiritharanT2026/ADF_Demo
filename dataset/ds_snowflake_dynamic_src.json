@@ -2,40 +2,21 @@
 	"name": "ds_snowflake_dynamic_src",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "Snowflake1",
+			"referenceName": "ls_snowflake_connection",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {
-			"p_table": {
+			"p_tableName": {
 				"type": "string"
 			}
 		},
 		"annotations": [],
 		"type": "SnowflakeV2Table",
-		"schema": [
-			{
-				"name": "AIRLINE_ID",
-				"type": "NUMBER",
-				"precision": 38,
-				"scale": 0
-			},
-			{
-				"name": "AIRLINE_NAME",
-				"type": "VARCHAR",
-				"precision": 0,
-				"scale": 0
-			},
-			{
-				"name": "COUNTRY",
-				"type": "VARCHAR",
-				"precision": 0,
-				"scale": 0
-			}
-		],
+		"schema": [],
 		"typeProperties": {
 			"schema": "PUBLIC",
 			"table": {
-				"value": "@dataset().p_table",
+				"value": "@dataset().p_tableName",
 				"type": "Expression"
 			}
 		}

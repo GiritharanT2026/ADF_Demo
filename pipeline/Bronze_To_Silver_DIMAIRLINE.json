@@ -1,0 +1,287 @@
+{
+	"name": "Bronze_To_Silver_DIMAIRLINE",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup_Watermark",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "ds_dimairline_watermark",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "Copy_Bronze_To_Staging",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "truncate_staging",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SnowflakeV2Source",
+						"query": {
+							"value": "SELECT AIRLINE_ID, AIRLINE_NAME, COUNTRY, SOURCE_FILE_NAME, INGESTION_TIMESTAMP FROM BRONZE.DIMAIRLINE WHERE INGESTION_TIMESTAMP > '@{activity('Lookup_Watermark').output.firstRow.LASTPROCESSEDTIMESTAMP}'",
+							"type": "Expression"
+						},
+						"exportSettings": {
+							"type": "SnowflakeExportCopyCommand"
+						}
+					},
+					"sink": {
+						"type": "SnowflakeV2Sink",
+						"importSettings": {
+							"type": "SnowflakeImportCopyCommand"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "ls_blobstorage_snowflakeStaging",
+							"type": "LinkedServiceReference"
+						},
+						"path": "snowflake/staging"
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "AIRLINE_ID",
+									"type": "String"
+								},
+								"sink": {
+									"name": "AIRLINE_ID",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "AIRLINE_NAME",
+									"type": "String"
+								},
+								"sink": {
+									"name": "AIRLINE_NAME",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "COUNTRY",
+									"type": "String"
+								},
+								"sink": {
+									"name": "COUNTRY",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "SOURCE_FILE_NAME",
+									"type": "String"
+								},
+								"sink": {
+									"name": "SOURCE_FILE_NAME",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "INGESTION_TIMESTAMP",
+									"type": "DateTime"
+								},
+								"sink": {
+									"name": "INGESTION_TIMESTAMP",
+									"type": "DateTime"
+								}
+							}
+						]
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_bronze_to_silver_src",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_bronzeToStaging_sink",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Copy data1",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Merge_Staging_To_Silver",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SnowflakeV2Source",
+						"query": {
+							"value": "SELECT\n    MAX(INGESTION_TIMESTAMP) AS lastProcessedTimestamp\nFROM BRONZE.DIMAIRLINE\nWHERE INGESTION_TIMESTAMP >\n'@{activity('Lookup_Watermark').output.firstRow.lastProcessedTimestamp}'",
+							"type": "Expression"
+						},
+						"exportSettings": {
+							"type": "SnowflakeExportCopyCommand"
+						}
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "ls_blobstorage_snowflakeStaging",
+							"type": "LinkedServiceReference"
+						},
+						"path": "snowflake/staging"
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_bronze_to_silver_src",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_updateJson_broToSil",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Merge_Staging_To_Silver",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Copy_Bronze_To_Staging",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "MERGE INTO SILVER.DIMAIRLINE AS target\nUSING STAGING.DIMAIRLINE AS source\nON target.AIRLINE_ID = source.AIRLINE_ID\n\nWHEN MATCHED AND (\n    NOT EQUAL_NULL(target.AIRLINE_NAME, source.AIRLINE_NAME)\n    OR NOT EQUAL_NULL(target.COUNTRY, source.COUNTRY)\n    OR NOT EQUAL_NULL(target.SOURCE_FILE_NAME, source.SOURCE_FILE_NAME)\n) THEN\n    UPDATE SET\n        AIRLINE_NAME        = source.AIRLINE_NAME,\n        COUNTRY             = source.COUNTRY,\n        SOURCE_FILE_NAME    = source.SOURCE_FILE_NAME,\n        INGESTION_TIMESTAMP = source.INGESTION_TIMESTAMP\n\nWHEN NOT MATCHED THEN\n    INSERT (\n        AIRLINE_ID,\n        AIRLINE_NAME,\n        COUNTRY,\n        SOURCE_FILE_NAME,\n        INGESTION_TIMESTAMP\n    )\n    VALUES (\n        source.AIRLINE_ID,\n        source.AIRLINE_NAME,\n        source.COUNTRY,\n        source.SOURCE_FILE_NAME,\n        source.INGESTION_TIMESTAMP\n    );\n",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00",
+					"treatDecimalAsString": false
+				}
+			},
+			{
+				"name": "truncate_staging",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Lookup_Watermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "TRUNCATE TABLE STAGING.DIMAIRLINE;",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00",
+					"treatDecimalAsString": false
+				}
+			}
+		],
+		"annotations": []
+	}
+}
