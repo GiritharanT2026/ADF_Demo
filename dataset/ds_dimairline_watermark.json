@@ -10,7 +10,7 @@
 		"typeProperties": {
 			"location": {
 				"type": "AzureBlobFSLocation",
-				"fileName": "DIMAIRLINE_watermark.json",
+				"fileName": "test_watermark.json",
 				"folderPath": "control",
 				"fileSystem": "snowflake"
 			}
@@ -18,10 +18,7 @@
 		"schema": {
 			"type": "object",
 			"properties": {
-				"pipelineName": {
-					"type": "string"
-				},
-				"lastProcessedTimestamp": {
+				"LASTPROCESSEDTIMESTAMP": {
 					"type": "string"
 				}
 			}
