@@ -61,7 +61,7 @@
 									"referenceName": "ds_snowflake_dynamic_src",
 									"type": "DatasetReference",
 									"parameters": {
-										"p_table": {
+										"p_tableName": {
 											"value": "@item()",
 											"type": "Expression"
 										}
@@ -73,7 +73,7 @@
 									"referenceName": "ds_snowflake_dynamic_sink",
 									"type": "DatasetReference",
 									"parameters": {
-										"p_table": {
+										"p_tableName": {
 											"value": "@item()",
 											"type": "Expression"
 										}
