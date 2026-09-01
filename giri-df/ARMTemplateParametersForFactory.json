@@ -8,6 +8,9 @@
 		"Snowflake1_password": {
 			"value": ""
 		},
+		"adls_adf_scd2_accountKey": {
+			"value": ""
+		},
 		"ls_ADLS_snowflake_accountKey": {
 			"value": ""
 		},
@@ -28,6 +31,9 @@
 		},
 		"Snowflake1_properties_typeProperties_role": {
 			"value": "ACCOUNTADMIN"
+		},
+		"adls_adf_scd2_properties_typeProperties_url": {
+			"value": "https://giri27storage.dfs.core.windows.net/"
 		},
 		"ls_ADLS_snowflake_properties_typeProperties_url": {
 			"value": "https://giri27storage.dfs.core.windows.net/"

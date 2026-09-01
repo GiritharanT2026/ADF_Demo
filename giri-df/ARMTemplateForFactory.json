@@ -11,6 +11,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'Snowflake1'"
 		},
+		"adls_adf_scd2_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'adls_adf_scd2'"
+		},
 		"ls_ADLS_snowflake_accountKey": {
 			"type": "secureString",
 			"metadata": "Secure string for 'accountKey' of 'ls_ADLS_snowflake'"
@@ -38,6 +42,10 @@
 		"Snowflake1_properties_typeProperties_role": {
 			"type": "string",
 			"defaultValue": "ACCOUNTADMIN"
+		},
+		"adls_adf_scd2_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://giri27storage.dfs.core.windows.net/"
 		},
 		"ls_ADLS_snowflake_properties_typeProperties_url": {
 			"type": "string",
@@ -267,7 +275,7 @@
 						"type": "Copy",
 						"dependsOn": [
 							{
-								"activity": "truncate_staging",
+								"activity": "truncateStaging",
 								"dependencyConditions": [
 									"Succeeded"
 								]
@@ -378,7 +386,7 @@
 						]
 					},
 					{
-						"name": "Copy data1",
+						"name": "updateLastUpdateColumn",
 						"type": "Copy",
 						"dependsOn": [
 							{
@@ -478,7 +486,7 @@
 						}
 					},
 					{
-						"name": "truncate_staging",
+						"name": "truncateStaging",
 						"type": "Script",
 						"dependsOn": [
 							{
@@ -518,7 +526,11 @@
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
-				"annotations": []
+				"folder": {
+					"name": "Snowflake"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-14T11:34:55Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_dimairline_watermark')]",
@@ -1195,6 +1207,93 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/SnowflakeParentPipeline')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Execute Pipeline1",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "snowflakeToADLSRaw",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "Execute Pipeline2",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Execute Pipeline1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "snowflakeRawToBronze",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "Execute Pipeline3",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Execute Pipeline2",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Bronze_To_Silver_DIMAIRLINE",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "Snowflake"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-14T11:34:55Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/snowflakeToADLSRaw')]",
+				"[concat(variables('factoryId'), '/pipelines/snowflakeRawToBronze')]",
+				"[concat(variables('factoryId'), '/pipelines/Bronze_To_Silver_DIMAIRLINE')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/copyCodePOC')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
@@ -1307,7 +1406,8 @@
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
-				"annotations": []
+				"annotations": [],
+				"lastPublishTime": "2026-08-14T09:35:16Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_copyCode_poc_src')]",
@@ -1614,86 +1714,377 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/pipeline1')]",
+			"name": "[concat(parameters('factoryName'), '/pl_adls_raw_to_bronze_scd2')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
 				"activities": [
 					{
-						"name": "Execute Pipeline1",
-						"type": "ExecutePipeline",
+						"name": "LookupConfigJson",
+						"type": "Lookup",
 						"dependsOn": [],
 						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
 							"secureInput": false
 						},
 						"userProperties": [],
 						"typeProperties": {
-							"pipeline": {
-								"referenceName": "snowflakeToADLSRaw",
-								"type": "PipelineReference"
+							"source": {
+								"type": "JsonSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "JsonReadSettings"
+								}
 							},
-							"waitOnCompletion": true,
-							"parameters": {}
+							"dataset": {
+								"referenceName": "ds_adls_config_json",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
 						}
 					},
 					{
-						"name": "Execute Pipeline2",
-						"type": "ExecutePipeline",
+						"name": "ForEachTable",
+						"type": "ForEach",
 						"dependsOn": [
 							{
-								"activity": "Execute Pipeline1",
+								"activity": "LookupConfigJson",
 								"dependencyConditions": [
 									"Succeeded"
 								]
 							}
 						],
-						"policy": {
-							"secureInput": false
-						},
 						"userProperties": [],
 						"typeProperties": {
-							"pipeline": {
-								"referenceName": "snowflakeRawToBronze",
-								"type": "PipelineReference"
+							"items": {
+								"value": "@activity('LookupConfigJson').output.value",
+								"type": "Expression"
 							},
-							"waitOnCompletion": true,
-							"parameters": {}
-						}
-					},
-					{
-						"name": "Execute Pipeline3",
-						"type": "ExecutePipeline",
-						"dependsOn": [
-							{
-								"activity": "Execute Pipeline2",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"pipeline": {
-								"referenceName": "Bronze_To_Silver_DIMAIRLINE",
-								"type": "PipelineReference"
-							},
-							"waitOnCompletion": true,
-							"parameters": {}
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Data flow1",
+									"type": "ExecuteDataFlow",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataflow": {
+											"referenceName": "df_adls_scd2",
+											"type": "DataFlowReference",
+											"parameters": {
+												"BusinessKey": {
+													"value": "'@{item().BUSINESS_KEY}'",
+													"type": "Expression"
+												},
+												"SourceContainer": {
+													"value": "'@{item().SOURCE_CONTAINER}'",
+													"type": "Expression"
+												},
+												"SourceDirectory": {
+													"value": "'@{item().SOURCE_DIRECTORY}'",
+													"type": "Expression"
+												},
+												"SourceFileName": {
+													"value": "'@{item().SOURCE_FILE}'",
+													"type": "Expression"
+												},
+												"TargetContainer": {
+													"value": "'@{item().TARGET_CONTAINER}'",
+													"type": "Expression"
+												},
+												"TargetDirectory": {
+													"value": "'@{item().TARGET_DIRECTORY}'",
+													"type": "Expression"
+												},
+												"TargetFileName": {
+													"value": "'@{item().TARGET_FILE}'",
+													"type": "Expression"
+												},
+												"PayloadColumns": {
+													"value": "@item().PAYLOAD_COLUMNS",
+													"type": "Expression"
+												}
+											},
+											"datasetParameters": {
+												"sourceCsvRaw": {},
+												"targetCsvScd2": {},
+												"sinkUnifiedScd2Csv": {}
+											}
+										},
+										"staging": {},
+										"compute": {
+											"coreCount": 8,
+											"computeType": "General"
+										},
+										"traceLevel": "Fine"
+									}
+								}
+							]
 						}
 					}
 				],
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
-				"annotations": []
+				"folder": {
+					"name": "adls_scd2"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-19T16:38:34Z"
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/pipelines/snowflakeToADLSRaw')]",
-				"[concat(variables('factoryId'), '/pipelines/snowflakeRawToBronze')]",
-				"[concat(variables('factoryId'), '/pipelines/Bronze_To_Silver_DIMAIRLINE')]"
+				"[concat(variables('factoryId'), '/datasets/ds_adls_config_json')]",
+				"[concat(variables('factoryId'), '/dataflows/df_adls_scd2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_dimairline_incremental')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_dimairline_incremental",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sourceDimairline": {},
+									"targetDimairline": {},
+									"sinkSnowflakeTarget": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-19T11:12:26Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/df_dimairline_incremental')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_dimairline_scd2')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_dimairline_scd2",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sourceDimairline": {},
+									"targetDimairlineSCD2": {},
+									"sinkExpireOld": {},
+									"sinkInsertAllNew": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-19T11:12:26Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/df_dimairline_scd2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_dimairline_scd2_dynamic')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "LookupMetadata",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SnowflakeV2Source",
+								"query": {
+									"value": "SELECT * FROM MY_DATABASE.CONFIG.SCD2_PIPELINE_METADATA WHERE IS_ENABLED = TRUE;",
+									"type": "Expression"
+								},
+								"exportSettings": {
+									"type": "SnowflakeExportCopyCommand"
+								},
+								"treatDecimalAsString": false
+							},
+							"dataset": {
+								"referenceName": "ds_config_snowflake_scd2",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEachTable",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "LookupMetadata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('LookupMetadata').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Data flow1",
+									"type": "ExecuteDataFlow",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataflow": {
+											"referenceName": "df_dimairline_scd2_dynamic",
+											"type": "DataFlowReference",
+											"parameters": {
+												"BusinessKey": {
+													"value": "'@{item().BUSINESS_KEY}'",
+													"type": "Expression"
+												},
+												"SourceSchema": {
+													"value": "'@{item().SOURCE_SCHEMA}'",
+													"type": "Expression"
+												},
+												"SourceTable": {
+													"value": "'@{item().SOURCE_TABLE}'",
+													"type": "Expression"
+												},
+												"TargetSchema": {
+													"value": "'@{item().TARGET_SCHEMA}'",
+													"type": "Expression"
+												},
+												"TargetTable": {
+													"value": "'@{item().TARGET_TABLE}'",
+													"type": "Expression"
+												},
+												"PayloadColumns": {
+													"value": "@json(item().PAYLOAD_COLUMNS)",
+													"type": "Expression"
+												}
+											},
+											"datasetParameters": {
+												"sourceDimairline": {},
+												"targetDimairlineSCD2": {},
+												"sinkExpireOld": {},
+												"sinkInsertAllNew": {}
+											}
+										},
+										"staging": {},
+										"compute": {
+											"coreCount": 8,
+											"computeType": "General"
+										},
+										"traceLevel": "Fine"
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-19T11:12:26Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_config_snowflake_scd2')]",
+				"[concat(variables('factoryId'), '/dataflows/df_dimairline_scd2_dynamic')]"
 			]
 		},
 		{
@@ -1843,7 +2234,11 @@
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
-				"annotations": []
+				"folder": {
+					"name": "Snowflake"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-14T11:34:55Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_ADFtoADLS_raw_csv_dynamic')]",
@@ -2096,7 +2491,8 @@
 						}
 					}
 				},
-				"annotations": []
+				"annotations": [],
+				"lastPublishTime": "2026-08-14T11:34:55Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_snowflake_dynamic_src')]",
@@ -2218,7 +2614,11 @@
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
-				"annotations": []
+				"folder": {
+					"name": "Snowflake"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-08-14T11:34:55Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_copyCode_poc_src')]",
@@ -2320,7 +2720,8 @@
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
-				"annotations": []
+				"annotations": [],
+				"lastPublishTime": "2026-08-12T04:55:31Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_snowflake_dimairline_src')]",
@@ -2614,7 +3015,7 @@
 					}
 				},
 				"annotations": [],
-				"lastPublishTime": "2026-08-10T17:05:16Z"
+				"lastPublishTime": "2026-08-14T09:35:16Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_snowflake_dynamic_src')]",
@@ -2657,6 +3058,65 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/linkedServices/ls_ADLS_snowflake')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_adls_config_json')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "adls_adf_scd2",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "adls_scd2"
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "adls_scd2_config.json",
+						"folderPath": "config",
+						"fileSystem": "adf-scd2"
+					}
+				},
+				"schema": {
+					"type": "object",
+					"properties": {
+						"SOURCE_CONTAINER": {
+							"type": "string"
+						},
+						"SOURCE_DIRECTORY": {
+							"type": "string"
+						},
+						"SOURCE_FILE": {
+							"type": "string"
+						},
+						"TARGET_CONTAINER": {
+							"type": "string"
+						},
+						"TARGET_DIRECTORY": {
+							"type": "string"
+						},
+						"TARGET_FILE": {
+							"type": "string"
+						},
+						"BUSINESS_KEY": {
+							"type": "string"
+						},
+						"PAYLOAD_COLUMNS": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/adls_adf_scd2')]"
 			]
 		},
 		{
@@ -2857,6 +3317,70 @@
 				"typeProperties": {
 					"schema": "BRONZE",
 					"table": "DIMAIRLINE"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_snowflake_connection')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_config_snowflake_scd2')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "SOURCE_SCHEMA",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "SOURCE_TABLE",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "TARGET_SCHEMA",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "TARGET_TABLE",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "BUSINESS_KEY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "PAYLOAD_COLUMNS",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "IS_ENABLED",
+						"type": "BOOLEAN",
+						"precision": 0,
+						"scale": 0
+					}
+				],
+				"typeProperties": {
+					"schema": "CONFIG",
+					"table": "SCD2_PIPELINE_METADATA"
 				}
 			},
 			"dependsOn": [
@@ -3565,6 +4089,309 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/ds_snowflake_src_dimairline')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "AIRLINE_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "AIRLINE_NAME",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "COUNTRY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					}
+				],
+				"typeProperties": {
+					"schema": "PUBLIC",
+					"table": "DIMAIRLINE"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_snowflake_connection')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_snowflake_src_dimairline_dynamic')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"SchemaName": {
+						"type": "string"
+					},
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "AIRLINE_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "AIRLINE_NAME",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "COUNTRY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					}
+				],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().SchemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_snowflake_connection')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_snowflake_tgt_dimairline')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "AIRLINE_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "AIRLINE_NAME",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "COUNTRY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "RECORD_HASH",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "UPDATED_AT",
+						"type": "TIMESTAMP_NTZ",
+						"precision": 0,
+						"scale": 9
+					}
+				],
+				"typeProperties": {
+					"schema": "BRONZE",
+					"table": "DIMAIRLINE_BRONZE"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_snowflake_connection')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_snowflake_tgt_dimairline_scd2')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "AIRLINE_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "AIRLINE_NAME",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "COUNTRY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "RECORD_HASH",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "IS_ACTIVE",
+						"type": "BOOLEAN",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "START_DATE",
+						"type": "TIMESTAMP_NTZ",
+						"precision": 0,
+						"scale": 9
+					},
+					{
+						"name": "END_DATE",
+						"type": "TIMESTAMP_NTZ",
+						"precision": 0,
+						"scale": 9
+					}
+				],
+				"typeProperties": {
+					"schema": "BRONZE",
+					"table": "DIMAIRLINE_BRONZE_SCD2"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_snowflake_connection')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_snowflake_tgt_dimairline_scd2_dynamic')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_snowflake_connection",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"SchemaName": {
+						"type": "string"
+					},
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "snowflakeTosnowflake and scd2"
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "AIRLINE_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "AIRLINE_NAME",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "COUNTRY",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "RECORD_HASH",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "IS_ACTIVE",
+						"type": "BOOLEAN",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "START_DATE",
+						"type": "TIMESTAMP_NTZ",
+						"precision": 0,
+						"scale": 9
+					},
+					{
+						"name": "END_DATE",
+						"type": "TIMESTAMP_NTZ",
+						"precision": 0,
+						"scale": 9
+					}
+				],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().SchemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_snowflake_connection')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/ds_sql_sink')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -3663,6 +4490,23 @@
 					"useUtcTimestamps": false
 				},
 				"version": "1.1"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/adls_adf_scd2')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('adls_adf_scd2_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('adls_adf_scd2_accountKey')]"
+					}
+				}
 			},
 			"dependsOn": []
 		},
@@ -4390,6 +5234,694 @@
 				"[concat(variables('factoryId'), '/datasets/ds_dimairline_src')]",
 				"[concat(variables('factoryId'), '/datasets/ds_dimairport')]",
 				"[concat(variables('factoryId'), '/linkedServices/ls_LakeStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/df_adls_scd2')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "adls_adf_scd2",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sourceCsvRaw"
+						},
+						{
+							"linkedService": {
+								"referenceName": "adls_adf_scd2",
+								"type": "LinkedServiceReference"
+							},
+							"name": "targetCsvScd2"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "adls_adf_scd2",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkUnifiedScd2Csv"
+						}
+					],
+					"transformations": [
+						{
+							"name": "createHash"
+						},
+						{
+							"name": "splitActiveHistory"
+						},
+						{
+							"name": "prefixTargetColumns"
+						},
+						{
+							"name": "joinActive"
+						},
+						{
+							"name": "classifyChange"
+						},
+						{
+							"name": "splitRecords"
+						},
+						{
+							"name": "expireOldRecord"
+						},
+						{
+							"name": "selectCleanExpired"
+						},
+						{
+							"name": "prepareNewRecord"
+						},
+						{
+							"name": "prepareNewVersion"
+						},
+						{
+							"name": "selectCleanUnchanged"
+						},
+						{
+							"name": "unionAllNewActive"
+						},
+						{
+							"name": "selectCleanNewActive"
+						},
+						{
+							"name": "unionCompleteScd2Dataset"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     BusinessKey as string ('airline_id'),",
+						"     SourceContainer as string ('adf-scd2'),",
+						"     SourceDirectory as string ('raw'),",
+						"     SourceFileName as string ('DIMAIRLINE.csv'),",
+						"     TargetContainer as string ('adf-scd2'),",
+						"     TargetDirectory as string ('bronze'),",
+						"     TargetFileName as string ('DIMAIRLINE_BRONZE_SCD2.csv'),",
+						"     PayloadColumns as string[] ([\"airline_name\",\"country\"])",
+						"}",
+						"source(useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: ($SourceContainer),",
+						"     folderPath: ($SourceDirectory),",
+						"     fileName: ($SourceFileName),",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> sourceCsvRaw",
+						"source(useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: true,",
+						"     format: 'delimited',",
+						"     fileSystem: ($TargetContainer),",
+						"     folderPath: ($TargetDirectory),",
+						"     fileName: ($TargetFileName),",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> targetCsvScd2",
+						"sourceCsvRaw derive(record_hash = sha2(256, toString(byNames($PayloadColumns))),",
+						"          batch_timestamp = currentTimestamp()) ~> createHash",
+						"targetCsvScd2 split(toString(byName('is_active')) == 'true' || toBoolean(byName('is_active')) == true(),",
+						"     disjoint: false) ~> splitActiveHistory@(ActiveRows, InactiveHistoricalRows)",
+						"splitActiveHistory@ActiveRows select(mapColumn(",
+						"          each(match(true()),",
+						"               concat('TGT_',$$) = $$)",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> prefixTargetColumns",
+						"createHash, prefixTargetColumns join(toString(byName($BusinessKey)) == toString(byName(concat('TGT_', $BusinessKey))),",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> joinActive",
+						"joinActive derive(CHANGE_TYPE = iif(isNull(byName(concat('TGT_', $BusinessKey))), 'NEW', iif(toString(byName('record_hash')) == toString(byName('TGT_record_hash')), 'UNCHANGED', 'CHANGED'))) ~> classifyChange",
+						"classifyChange split(CHANGE_TYPE == 'NEW',",
+						"     CHANGE_TYPE == 'CHANGED',",
+						"     CHANGE_TYPE == 'UNCHANGED',",
+						"     disjoint: false) ~> splitRecords@(NewRecords, ChangedRecords, UnchangedRecords)",
+						"splitRecords@ChangedRecords derive(is_active = 'false',",
+						"          end_date = toString(batch_timestamp, 'yyyy-MM-dd HH:mm:ss'),",
+						"          start_date = toString(byName('TGT_start_date'))) ~> expireOldRecord",
+						"expireOldRecord select(mapColumn(",
+						"          is_active,",
+						"          start_date,",
+						"          end_date,",
+						"          each(match(startsWith(name,'TGT_')&&!in(['TGT_is_active','TGT_start_date','TGT_end_date','TGT_IS_ACTIVE','TGT_START_DATE','TGT_END_DATE'],name)),",
+						"               replace($$,'TGT_','') = $$)",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectCleanExpired",
+						"splitRecords@NewRecords derive(is_active = 'true',",
+						"          start_date = toString(batch_timestamp, 'yyyy-MM-dd HH:mm:ss'),",
+						"          end_date = '9999-12-31 23:59:59') ~> prepareNewRecord",
+						"splitRecords@ChangedRecords derive(is_active = 'true',",
+						"          start_date = toString(batch_timestamp, 'yyyy-MM-dd HH:mm:ss'),",
+						"          end_date = '9999-12-31 23:59:59') ~> prepareNewVersion",
+						"splitRecords@UnchangedRecords select(mapColumn(",
+						"          each(match(startsWith(name,'TGT_')&&!in(['TGT_CHANGE_TYPE','TGT_batch_timestamp','TGT_BATCH_TIMESTAMP'],name)),",
+						"               replace($$,'TGT_','') = $$)",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectCleanUnchanged",
+						"prepareNewRecord, prepareNewVersion union(byName: true)~> unionAllNewActive",
+						"unionAllNewActive select(mapColumn(",
+						"          each(match(!startsWith(name,'TGT_')&&!in(['CHANGE_TYPE','batch_timestamp','BATCH_TIMESTAMP'],name)))",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectCleanNewActive",
+						"splitActiveHistory@InactiveHistoricalRows, selectCleanExpired, selectCleanUnchanged, selectCleanNewActive union(byName: true)~> unionCompleteScd2Dataset",
+						"unionCompleteScd2Dataset sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delimited',",
+						"     fileSystem: ($TargetContainer),",
+						"     folderPath: ($TargetDirectory),",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true,",
+						"     partitionFileNames:[($TargetFileName)],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> sinkUnifiedScd2Csv"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/adls_adf_scd2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/df_dimairline_incremental')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "ds_snowflake_src_dimairline",
+								"type": "DatasetReference"
+							},
+							"name": "sourceDimairline"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_snowflake_tgt_dimairline",
+								"type": "DatasetReference"
+							},
+							"name": "targetDimairline"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ds_snowflake_tgt_dimairline",
+								"type": "DatasetReference"
+							},
+							"name": "sinkSnowflakeTarget"
+						}
+					],
+					"transformations": [
+						{
+							"name": "createSourceHash"
+						},
+						{
+							"name": "joinSourceTarget"
+						},
+						{
+							"name": "filterNewOrChanged"
+						},
+						{
+							"name": "selectTargetColumns"
+						},
+						{
+							"name": "setUpsert"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          AIRLINE_ID as decimal(38,0),",
+						"          AIRLINE_NAME as string,",
+						"          COUNTRY as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table') ~> sourceDimairline",
+						"source(output(",
+						"          AIRLINE_ID as decimal(38,0),",
+						"          AIRLINE_NAME as string,",
+						"          COUNTRY as string,",
+						"          RECORD_HASH as string,",
+						"          UPDATED_AT as timestamp",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table') ~> targetDimairline",
+						"sourceDimairline derive(RECORD_HASH = sha2(256, concat(\r",
+						"    coalesce(AIRLINE_NAME, ''),\r",
+						"    '|',\r",
+						"    coalesce(COUNTRY, '')\r",
+						")),",
+						"          UPDATED_AT = currentTimestamp()) ~> createSourceHash",
+						"createSourceHash, targetDimairline join(sourceDimairline@AIRLINE_ID == targetDimairline@AIRLINE_ID,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> joinSourceTarget",
+						"joinSourceTarget filter(isNull(targetDimairline@AIRLINE_ID)\r",
+						"||\r",
+						"createSourceHash@RECORD_HASH != targetDimairline@RECORD_HASH) ~> filterNewOrChanged",
+						"filterNewOrChanged select(mapColumn(",
+						"          AIRLINE_ID = sourceDimairline@AIRLINE_ID,",
+						"          AIRLINE_NAME = sourceDimairline@AIRLINE_NAME,",
+						"          COUNTRY = sourceDimairline@COUNTRY,",
+						"          RECORD_HASH = createSourceHash@RECORD_HASH,",
+						"          UPDATED_AT = createSourceHash@UPDATED_AT,",
+						"          AIRLINE_ID = targetDimairline@AIRLINE_ID,",
+						"          AIRLINE_NAME = targetDimairline@AIRLINE_NAME,",
+						"          COUNTRY = targetDimairline@COUNTRY,",
+						"          RECORD_HASH = targetDimairline@RECORD_HASH,",
+						"          UPDATED_AT = targetDimairline@UPDATED_AT",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectTargetColumns",
+						"selectTargetColumns alterRow(upsertIf(1==1)) ~> setUpsert",
+						"setUpsert sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          AIRLINE_ID as decimal(38,0),",
+						"          AIRLINE_NAME as string,",
+						"          COUNTRY as string,",
+						"          RECORD_HASH as string,",
+						"          UPDATED_AT as timestamp",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:true,",
+						"     keys:['AIRLINE_ID'],",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true) ~> sinkSnowflakeTarget"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_snowflake_src_dimairline')]",
+				"[concat(variables('factoryId'), '/datasets/ds_snowflake_tgt_dimairline')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/df_dimairline_scd2')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "ds_snowflake_src_dimairline",
+								"type": "DatasetReference"
+							},
+							"name": "sourceDimairline"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_snowflake_tgt_dimairline_scd2",
+								"type": "DatasetReference"
+							},
+							"name": "targetDimairlineSCD2"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ds_snowflake_tgt_dimairline_scd2",
+								"type": "DatasetReference"
+							},
+							"name": "sinkExpireOld"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_snowflake_tgt_dimairline_scd2",
+								"type": "DatasetReference"
+							},
+							"name": "sinkInsertAllNew"
+						}
+					],
+					"transformations": [
+						{
+							"name": "createHash"
+						},
+						{
+							"name": "filterActiveTarget"
+						},
+						{
+							"name": "selectPrefixTargetColumns"
+						},
+						{
+							"name": "join1"
+						},
+						{
+							"name": "classifyChange"
+						},
+						{
+							"name": "filterNewChanged"
+						},
+						{
+							"name": "splitNewChanged"
+						},
+						{
+							"name": "expireOldRecord"
+						},
+						{
+							"name": "updateOldRecord"
+						},
+						{
+							"name": "prepareNewRecord"
+						},
+						{
+							"name": "prepareNewVersionChanged"
+						},
+						{
+							"name": "unionAllInserts"
+						},
+						{
+							"name": "alterRowInsert"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          AIRLINE_ID as decimal(38,0),",
+						"          AIRLINE_NAME as string,",
+						"          COUNTRY as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table') ~> sourceDimairline",
+						"source(output(",
+						"          AIRLINE_ID as decimal(38,0),",
+						"          AIRLINE_NAME as string,",
+						"          COUNTRY as string,",
+						"          RECORD_HASH as string,",
+						"          IS_ACTIVE as boolean,",
+						"          START_DATE as timestamp,",
+						"          END_DATE as timestamp",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table') ~> targetDimairlineSCD2",
+						"sourceDimairline derive(RECORD_HASH = sha2(256, concat(coalesce(AIRLINE_NAME, ''), '|', coalesce(COUNTRY, ''))),",
+						"          BATCH_TIMESTAMP = currentTimestamp()) ~> createHash",
+						"targetDimairlineSCD2 filter(IS_ACTIVE == true()) ~> filterActiveTarget",
+						"filterActiveTarget select(mapColumn(",
+						"          TGT_AIRLINE_ID = AIRLINE_ID,",
+						"          TGT_RECORD_HASH = RECORD_HASH,",
+						"          TGT_START_DATE = START_DATE",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectPrefixTargetColumns",
+						"createHash, selectPrefixTargetColumns join(AIRLINE_ID == TGT_AIRLINE_ID,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"join1 derive(CHANGE_TYPE = iif(isNull(TGT_AIRLINE_ID), 'NEW', iif(RECORD_HASH == TGT_RECORD_HASH, 'UNCHANGED', 'CHANGED'))) ~> classifyChange",
+						"classifyChange filter(CHANGE_TYPE != 'UNCHANGED') ~> filterNewChanged",
+						"filterNewChanged split(CHANGE_TYPE == 'NEW',",
+						"     CHANGE_TYPE == 'CHANGED',",
+						"     disjoint: false) ~> splitNewChanged@(NewRecords, ChangedRecords)",
+						"splitNewChanged@ChangedRecords derive(IS_ACTIVE = false(),",
+						"          END_DATE = BATCH_TIMESTAMP) ~> expireOldRecord",
+						"expireOldRecord alterRow(updateIf(true())) ~> updateOldRecord",
+						"splitNewChanged@NewRecords derive(IS_ACTIVE = true(),",
+						"          START_DATE = BATCH_TIMESTAMP,",
+						"          END_DATE = toTimestamp(null())) ~> prepareNewRecord",
+						"splitNewChanged@ChangedRecords derive(IS_ACTIVE = true(),",
+						"          START_DATE = BATCH_TIMESTAMP,",
+						"          END_DATE = toTimestamp(null())) ~> prepareNewVersionChanged",
+						"prepareNewRecord, prepareNewVersionChanged union(byName: true)~> unionAllInserts",
+						"unionAllInserts alterRow(insertIf(true())) ~> alterRowInsert",
+						"updateOldRecord sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          AIRLINE_ID as decimal(38,0),",
+						"          AIRLINE_NAME as string,",
+						"          COUNTRY as string,",
+						"          RECORD_HASH as string,",
+						"          IS_ACTIVE as boolean,",
+						"          START_DATE as timestamp,",
+						"          END_DATE as timestamp",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:false,",
+						"     updateable:true,",
+						"     upsertable:false,",
+						"     keys:['AIRLINE_ID','RECORD_HASH'],",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true,",
+						"     mapColumn(",
+						"          AIRLINE_ID = TGT_AIRLINE_ID,",
+						"          RECORD_HASH = TGT_RECORD_HASH,",
+						"          IS_ACTIVE,",
+						"          END_DATE",
+						"     )) ~> sinkExpireOld",
+						"alterRowInsert sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          AIRLINE_ID as decimal(38,0),",
+						"          AIRLINE_NAME as string,",
+						"          COUNTRY as string,",
+						"          RECORD_HASH as string,",
+						"          IS_ACTIVE as boolean,",
+						"          START_DATE as timestamp,",
+						"          END_DATE as timestamp",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true,",
+						"     mapColumn(",
+						"          AIRLINE_ID,",
+						"          AIRLINE_NAME,",
+						"          COUNTRY,",
+						"          RECORD_HASH,",
+						"          IS_ACTIVE,",
+						"          START_DATE,",
+						"          END_DATE",
+						"     )) ~> sinkInsertAllNew"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_snowflake_src_dimairline')]",
+				"[concat(variables('factoryId'), '/datasets/ds_snowflake_tgt_dimairline_scd2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/df_dimairline_scd2_dynamic')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "ls_snowflake_connection",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sourceDimairline"
+						},
+						{
+							"linkedService": {
+								"referenceName": "ls_snowflake_connection",
+								"type": "LinkedServiceReference"
+							},
+							"name": "targetDimairlineSCD2"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "ls_snowflake_connection",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkExpireOld"
+						},
+						{
+							"linkedService": {
+								"referenceName": "ls_snowflake_connection",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkInsertAllNew"
+						}
+					],
+					"transformations": [
+						{
+							"name": "createHash"
+						},
+						{
+							"name": "filterActiveTarget"
+						},
+						{
+							"name": "selectPrefixTargetColumns"
+						},
+						{
+							"name": "join1"
+						},
+						{
+							"name": "classifyChange"
+						},
+						{
+							"name": "filterNewChanged"
+						},
+						{
+							"name": "splitNewChanged"
+						},
+						{
+							"name": "expireOldRecord"
+						},
+						{
+							"name": "selectOldTargetColumns"
+						},
+						{
+							"name": "updateOldRecord"
+						},
+						{
+							"name": "prepareNewRecord"
+						},
+						{
+							"name": "prepareNewVersionChanged"
+						},
+						{
+							"name": "unionAllInserts"
+						},
+						{
+							"name": "selectOnlyTargetColumns"
+						},
+						{
+							"name": "alterRowInsert"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     BusinessKey as string ('AIRLINE_ID'),",
+						"     SourceSchema as string ('PUBLIC'),",
+						"     SourceTable as string ('DIMAIRLINE'),",
+						"     TargetSchema as string ('BRONZE'),",
+						"     TargetTable as string ('DIMAIRLINE_BRONZE_SCD2'),",
+						"     PayloadColumns as string[] (['AIRLINE_NAME','COUNTRY'])",
+						"}",
+						"source(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     tableName: ($SourceTable),",
+						"     schemaName: ($SourceSchema),",
+						"     store: 'snowflake',",
+						"     store: 'snowflakeV2') ~> sourceDimairline",
+						"source(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     tableName: ($TargetTable),",
+						"     schemaName: ($TargetSchema),",
+						"     store: 'snowflake',",
+						"     store: 'snowflakeV2') ~> targetDimairlineSCD2",
+						"sourceDimairline derive(RECORD_HASH = sha2(256, toString(byNames($PayloadColumns))),",
+						"          BATCH_TIMESTAMP = currentTimestamp()) ~> createHash",
+						"targetDimairlineSCD2 filter(toBoolean(byName('IS_ACTIVE')) == true()) ~> filterActiveTarget",
+						"filterActiveTarget select(mapColumn(",
+						"          each(match(true()),",
+						"               concat('TGT_',$$) = $$)",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectPrefixTargetColumns",
+						"createHash, selectPrefixTargetColumns join(toString(byName($BusinessKey)) == toString(byName(concat('TGT_', $BusinessKey))),",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"join1 derive(CHANGE_TYPE = iif(isNull(byName(concat('TGT_', $BusinessKey))), 'NEW', iif(toString(byName('RECORD_HASH')) == toString(byName('TGT_RECORD_HASH')), 'UNCHANGED', 'CHANGED'))) ~> classifyChange",
+						"classifyChange filter(CHANGE_TYPE != 'UNCHANGED') ~> filterNewChanged",
+						"filterNewChanged split(CHANGE_TYPE == 'NEW',",
+						"     CHANGE_TYPE == 'CHANGED',",
+						"     disjoint: false) ~> splitNewChanged@(NewRecords, ChangedRecords)",
+						"splitNewChanged@ChangedRecords derive(IS_ACTIVE = false(),",
+						"          END_DATE = BATCH_TIMESTAMP) ~> expireOldRecord",
+						"expireOldRecord select(mapColumn(",
+						"          IS_ACTIVE,",
+						"          END_DATE,",
+						"          each(match(startsWith(name,'TGT_')&&!in(['TGT_IS_ACTIVE','TGT_START_DATE','TGT_END_DATE'],name)),",
+						"               replace($$,'TGT_','') = $$)",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectOldTargetColumns",
+						"selectOldTargetColumns alterRow(updateIf(true())) ~> updateOldRecord",
+						"splitNewChanged@NewRecords derive(IS_ACTIVE = true(),",
+						"          START_DATE = BATCH_TIMESTAMP,",
+						"          END_DATE = toTimestamp(null())) ~> prepareNewRecord",
+						"splitNewChanged@ChangedRecords derive(IS_ACTIVE = true(),",
+						"          START_DATE = BATCH_TIMESTAMP,",
+						"          END_DATE = toTimestamp(null())) ~> prepareNewVersionChanged",
+						"prepareNewRecord, prepareNewVersionChanged union(byName: true)~> unionAllInserts",
+						"unionAllInserts select(mapColumn(",
+						"          each(match(!startsWith(name,'TGT_')&&!in(['CHANGE_TYPE','BATCH_TIMESTAMP'],name)))",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectOnlyTargetColumns",
+						"selectOnlyTargetColumns alterRow(insertIf(true())) ~> alterRowInsert",
+						"updateOldRecord sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     tableName: ($TargetTable),",
+						"     schemaName: ($TargetSchema),",
+						"     deletable: false,",
+						"     insertable: false,",
+						"     updateable: true,",
+						"     upsertable: false,",
+						"     keys:[($BusinessKey),'RECORD_HASH'],",
+						"     store: 'snowflake',",
+						"     store: 'snowflakeV2',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sinkExpireOld",
+						"alterRowInsert sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     tableName: ($TargetTable),",
+						"     schemaName: ($TargetSchema),",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     store: 'snowflake',",
+						"     store: 'snowflakeV2',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sinkInsertAllNew"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_snowflake_connection')]"
 			]
 		}
 	]
