@@ -1,0 +1,55 @@
+{
+	"name": "ds_adls_config_json",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "adls_adf_scd2",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "adls_scd2"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "adls_scd2_config.json",
+				"folderPath": "config",
+				"fileSystem": "adf-scd2"
+			}
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"SOURCE_CONTAINER": {
+					"type": "string"
+				},
+				"SOURCE_DIRECTORY": {
+					"type": "string"
+				},
+				"SOURCE_FILE": {
+					"type": "string"
+				},
+				"TARGET_CONTAINER": {
+					"type": "string"
+				},
+				"TARGET_DIRECTORY": {
+					"type": "string"
+				},
+				"TARGET_FILE": {
+					"type": "string"
+				},
+				"BUSINESS_KEY": {
+					"type": "string"
+				},
+				"PAYLOAD_COLUMNS": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

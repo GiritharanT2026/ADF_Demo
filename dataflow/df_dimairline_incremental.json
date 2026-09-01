@@ -1,0 +1,117 @@
+{
+	"name": "df_dimairline_incremental",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_snowflake_src_dimairline",
+						"type": "DatasetReference"
+					},
+					"name": "sourceDimairline"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_snowflake_tgt_dimairline",
+						"type": "DatasetReference"
+					},
+					"name": "targetDimairline"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_snowflake_tgt_dimairline",
+						"type": "DatasetReference"
+					},
+					"name": "sinkSnowflakeTarget"
+				}
+			],
+			"transformations": [
+				{
+					"name": "createSourceHash"
+				},
+				{
+					"name": "joinSourceTarget"
+				},
+				{
+					"name": "filterNewOrChanged"
+				},
+				{
+					"name": "selectTargetColumns"
+				},
+				{
+					"name": "setUpsert"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          AIRLINE_ID as decimal(38,0),",
+				"          AIRLINE_NAME as string,",
+				"          COUNTRY as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> sourceDimairline",
+				"source(output(",
+				"          AIRLINE_ID as decimal(38,0),",
+				"          AIRLINE_NAME as string,",
+				"          COUNTRY as string,",
+				"          RECORD_HASH as string,",
+				"          UPDATED_AT as timestamp",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> targetDimairline",
+				"sourceDimairline derive(RECORD_HASH = sha2(256, concat(\r",
+				"    coalesce(AIRLINE_NAME, ''),\r",
+				"    '|',\r",
+				"    coalesce(COUNTRY, '')\r",
+				")),",
+				"          UPDATED_AT = currentTimestamp()) ~> createSourceHash",
+				"createSourceHash, targetDimairline join(sourceDimairline@AIRLINE_ID == targetDimairline@AIRLINE_ID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinSourceTarget",
+				"joinSourceTarget filter(isNull(targetDimairline@AIRLINE_ID)\r",
+				"||\r",
+				"createSourceHash@RECORD_HASH != targetDimairline@RECORD_HASH) ~> filterNewOrChanged",
+				"filterNewOrChanged select(mapColumn(",
+				"          AIRLINE_ID = sourceDimairline@AIRLINE_ID,",
+				"          AIRLINE_NAME = sourceDimairline@AIRLINE_NAME,",
+				"          COUNTRY = sourceDimairline@COUNTRY,",
+				"          RECORD_HASH = createSourceHash@RECORD_HASH,",
+				"          UPDATED_AT = createSourceHash@UPDATED_AT,",
+				"          AIRLINE_ID = targetDimairline@AIRLINE_ID,",
+				"          AIRLINE_NAME = targetDimairline@AIRLINE_NAME,",
+				"          COUNTRY = targetDimairline@COUNTRY,",
+				"          RECORD_HASH = targetDimairline@RECORD_HASH,",
+				"          UPDATED_AT = targetDimairline@UPDATED_AT",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectTargetColumns",
+				"selectTargetColumns alterRow(upsertIf(1==1)) ~> setUpsert",
+				"setUpsert sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          AIRLINE_ID as decimal(38,0),",
+				"          AIRLINE_NAME as string,",
+				"          COUNTRY as string,",
+				"          RECORD_HASH as string,",
+				"          UPDATED_AT as timestamp",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:true,",
+				"     keys:['AIRLINE_ID'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true) ~> sinkSnowflakeTarget"
+			]
+		}
+	}
+}

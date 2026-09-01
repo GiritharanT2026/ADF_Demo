@@ -1,0 +1,181 @@
+{
+	"name": "df_dimairline_scd2_dynamic",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "ls_snowflake_connection",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sourceDimairline"
+				},
+				{
+					"linkedService": {
+						"referenceName": "ls_snowflake_connection",
+						"type": "LinkedServiceReference"
+					},
+					"name": "targetDimairlineSCD2"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "ls_snowflake_connection",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sinkExpireOld"
+				},
+				{
+					"linkedService": {
+						"referenceName": "ls_snowflake_connection",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sinkInsertAllNew"
+				}
+			],
+			"transformations": [
+				{
+					"name": "createHash"
+				},
+				{
+					"name": "filterActiveTarget"
+				},
+				{
+					"name": "selectPrefixTargetColumns"
+				},
+				{
+					"name": "join1"
+				},
+				{
+					"name": "classifyChange"
+				},
+				{
+					"name": "filterNewChanged"
+				},
+				{
+					"name": "splitNewChanged"
+				},
+				{
+					"name": "expireOldRecord"
+				},
+				{
+					"name": "selectOldTargetColumns"
+				},
+				{
+					"name": "updateOldRecord"
+				},
+				{
+					"name": "prepareNewRecord"
+				},
+				{
+					"name": "prepareNewVersionChanged"
+				},
+				{
+					"name": "unionAllInserts"
+				},
+				{
+					"name": "selectOnlyTargetColumns"
+				},
+				{
+					"name": "alterRowInsert"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     BusinessKey as string ('AIRLINE_ID'),",
+				"     SourceSchema as string ('PUBLIC'),",
+				"     SourceTable as string ('DIMAIRLINE'),",
+				"     TargetSchema as string ('BRONZE'),",
+				"     TargetTable as string ('DIMAIRLINE_BRONZE_SCD2'),",
+				"     PayloadColumns as string[] (['AIRLINE_NAME','COUNTRY'])",
+				"}",
+				"source(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     tableName: ($SourceTable),",
+				"     schemaName: ($SourceSchema),",
+				"     store: 'snowflake',",
+				"     store: 'snowflakeV2') ~> sourceDimairline",
+				"source(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     tableName: ($TargetTable),",
+				"     schemaName: ($TargetSchema),",
+				"     store: 'snowflake',",
+				"     store: 'snowflakeV2') ~> targetDimairlineSCD2",
+				"sourceDimairline derive(RECORD_HASH = sha2(256, toString(byNames($PayloadColumns))),",
+				"          BATCH_TIMESTAMP = currentTimestamp()) ~> createHash",
+				"targetDimairlineSCD2 filter(toBoolean(byName('IS_ACTIVE')) == true()) ~> filterActiveTarget",
+				"filterActiveTarget select(mapColumn(",
+				"          each(match(true()),",
+				"               concat('TGT_',$$) = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectPrefixTargetColumns",
+				"createHash, selectPrefixTargetColumns join(toString(byName($BusinessKey)) == toString(byName(concat('TGT_', $BusinessKey))),",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"join1 derive(CHANGE_TYPE = iif(isNull(byName(concat('TGT_', $BusinessKey))), 'NEW', iif(toString(byName('RECORD_HASH')) == toString(byName('TGT_RECORD_HASH')), 'UNCHANGED', 'CHANGED'))) ~> classifyChange",
+				"classifyChange filter(CHANGE_TYPE != 'UNCHANGED') ~> filterNewChanged",
+				"filterNewChanged split(CHANGE_TYPE == 'NEW',",
+				"     CHANGE_TYPE == 'CHANGED',",
+				"     disjoint: false) ~> splitNewChanged@(NewRecords, ChangedRecords)",
+				"splitNewChanged@ChangedRecords derive(IS_ACTIVE = false(),",
+				"          END_DATE = BATCH_TIMESTAMP) ~> expireOldRecord",
+				"expireOldRecord select(mapColumn(",
+				"          IS_ACTIVE,",
+				"          END_DATE,",
+				"          each(match(startsWith(name,'TGT_')&&!in(['TGT_IS_ACTIVE','TGT_START_DATE','TGT_END_DATE'],name)),",
+				"               replace($$,'TGT_','') = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectOldTargetColumns",
+				"selectOldTargetColumns alterRow(updateIf(true())) ~> updateOldRecord",
+				"splitNewChanged@NewRecords derive(IS_ACTIVE = true(),",
+				"          START_DATE = BATCH_TIMESTAMP,",
+				"          END_DATE = toTimestamp(null())) ~> prepareNewRecord",
+				"splitNewChanged@ChangedRecords derive(IS_ACTIVE = true(),",
+				"          START_DATE = BATCH_TIMESTAMP,",
+				"          END_DATE = toTimestamp(null())) ~> prepareNewVersionChanged",
+				"prepareNewRecord, prepareNewVersionChanged union(byName: true)~> unionAllInserts",
+				"unionAllInserts select(mapColumn(",
+				"          each(match(!startsWith(name,'TGT_')&&!in(['CHANGE_TYPE','BATCH_TIMESTAMP'],name)))",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectOnlyTargetColumns",
+				"selectOnlyTargetColumns alterRow(insertIf(true())) ~> alterRowInsert",
+				"updateOldRecord sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     tableName: ($TargetTable),",
+				"     schemaName: ($TargetSchema),",
+				"     deletable: false,",
+				"     insertable: false,",
+				"     updateable: true,",
+				"     upsertable: false,",
+				"     keys:[($BusinessKey),'RECORD_HASH'],",
+				"     store: 'snowflake',",
+				"     store: 'snowflakeV2',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sinkExpireOld",
+				"alterRowInsert sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     tableName: ($TargetTable),",
+				"     schemaName: ($TargetSchema),",
+				"     deletable: false,",
+				"     insertable: true,",
+				"     updateable: false,",
+				"     upsertable: false,",
+				"     store: 'snowflake',",
+				"     store: 'snowflakeV2',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sinkInsertAllNew"
+			]
+		}
+	}
+}

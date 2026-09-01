@@ -1,0 +1,63 @@
+{
+	"name": "ds_snowflake_tgt_dimairline_scd2",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_snowflake_connection",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "snowflakeTosnowflake and scd2"
+		},
+		"annotations": [],
+		"type": "SnowflakeV2Table",
+		"schema": [
+			{
+				"name": "AIRLINE_ID",
+				"type": "NUMBER",
+				"precision": 38,
+				"scale": 0
+			},
+			{
+				"name": "AIRLINE_NAME",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "COUNTRY",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "RECORD_HASH",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "IS_ACTIVE",
+				"type": "BOOLEAN",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "START_DATE",
+				"type": "TIMESTAMP_NTZ",
+				"precision": 0,
+				"scale": 9
+			},
+			{
+				"name": "END_DATE",
+				"type": "TIMESTAMP_NTZ",
+				"precision": 0,
+				"scale": 9
+			}
+		],
+		"typeProperties": {
+			"schema": "BRONZE",
+			"table": "DIMAIRLINE_BRONZE_SCD2"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

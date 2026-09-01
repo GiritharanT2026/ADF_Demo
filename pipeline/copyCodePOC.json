@@ -1,0 +1,111 @@
+{
+	"name": "copyCodePOC",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy data1",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SnowflakeV2Source",
+						"exportSettings": {
+							"type": "SnowflakeExportCopyCommand"
+						}
+					},
+					"sink": {
+						"type": "SnowflakeV2Sink",
+						"importSettings": {
+							"type": "SnowflakeImportCopyCommand"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "ls_blobstorage_snowflakeStaging",
+							"type": "LinkedServiceReference"
+						}
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "PASSENGER_ID",
+									"type": "Decimal"
+								},
+								"sink": {
+									"name": "PASSENGER_ID",
+									"type": "Decimal"
+								}
+							},
+							{
+								"source": {
+									"name": "FULL_NAME",
+									"type": "String"
+								},
+								"sink": {
+									"name": "FULL_NAME",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "GENDER",
+									"type": "String"
+								},
+								"sink": {
+									"name": "GENDER",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "AGE",
+									"type": "Decimal"
+								},
+								"sink": {
+									"name": "AGE",
+									"type": "Decimal"
+								}
+							},
+							{
+								"source": {
+									"name": "COUNTRY",
+									"type": "String"
+								},
+								"sink": {
+									"name": "COUNTRY",
+									"type": "String"
+								}
+							}
+						]
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_copyCode_poc_src",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_copyCode_poc_sink",
+						"type": "DatasetReference"
+					}
+				]
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-08-14T09:35:16Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

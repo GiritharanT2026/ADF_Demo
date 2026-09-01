@@ -1,0 +1,188 @@
+{
+	"name": "df_dimairline_scd2",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_snowflake_src_dimairline",
+						"type": "DatasetReference"
+					},
+					"name": "sourceDimairline"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_snowflake_tgt_dimairline_scd2",
+						"type": "DatasetReference"
+					},
+					"name": "targetDimairlineSCD2"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_snowflake_tgt_dimairline_scd2",
+						"type": "DatasetReference"
+					},
+					"name": "sinkExpireOld"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_snowflake_tgt_dimairline_scd2",
+						"type": "DatasetReference"
+					},
+					"name": "sinkInsertAllNew"
+				}
+			],
+			"transformations": [
+				{
+					"name": "createHash"
+				},
+				{
+					"name": "filterActiveTarget"
+				},
+				{
+					"name": "selectPrefixTargetColumns"
+				},
+				{
+					"name": "join1"
+				},
+				{
+					"name": "classifyChange"
+				},
+				{
+					"name": "filterNewChanged"
+				},
+				{
+					"name": "splitNewChanged"
+				},
+				{
+					"name": "expireOldRecord"
+				},
+				{
+					"name": "updateOldRecord"
+				},
+				{
+					"name": "prepareNewRecord"
+				},
+				{
+					"name": "prepareNewVersionChanged"
+				},
+				{
+					"name": "unionAllInserts"
+				},
+				{
+					"name": "alterRowInsert"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          AIRLINE_ID as decimal(38,0),",
+				"          AIRLINE_NAME as string,",
+				"          COUNTRY as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> sourceDimairline",
+				"source(output(",
+				"          AIRLINE_ID as decimal(38,0),",
+				"          AIRLINE_NAME as string,",
+				"          COUNTRY as string,",
+				"          RECORD_HASH as string,",
+				"          IS_ACTIVE as boolean,",
+				"          START_DATE as timestamp,",
+				"          END_DATE as timestamp",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> targetDimairlineSCD2",
+				"sourceDimairline derive(RECORD_HASH = sha2(256, concat(coalesce(AIRLINE_NAME, ''), '|', coalesce(COUNTRY, ''))),",
+				"          BATCH_TIMESTAMP = currentTimestamp()) ~> createHash",
+				"targetDimairlineSCD2 filter(IS_ACTIVE == true()) ~> filterActiveTarget",
+				"filterActiveTarget select(mapColumn(",
+				"          TGT_AIRLINE_ID = AIRLINE_ID,",
+				"          TGT_RECORD_HASH = RECORD_HASH,",
+				"          TGT_START_DATE = START_DATE",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectPrefixTargetColumns",
+				"createHash, selectPrefixTargetColumns join(AIRLINE_ID == TGT_AIRLINE_ID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"join1 derive(CHANGE_TYPE = iif(isNull(TGT_AIRLINE_ID), 'NEW', iif(RECORD_HASH == TGT_RECORD_HASH, 'UNCHANGED', 'CHANGED'))) ~> classifyChange",
+				"classifyChange filter(CHANGE_TYPE != 'UNCHANGED') ~> filterNewChanged",
+				"filterNewChanged split(CHANGE_TYPE == 'NEW',",
+				"     CHANGE_TYPE == 'CHANGED',",
+				"     disjoint: false) ~> splitNewChanged@(NewRecords, ChangedRecords)",
+				"splitNewChanged@ChangedRecords derive(IS_ACTIVE = false(),",
+				"          END_DATE = BATCH_TIMESTAMP) ~> expireOldRecord",
+				"expireOldRecord alterRow(updateIf(true())) ~> updateOldRecord",
+				"splitNewChanged@NewRecords derive(IS_ACTIVE = true(),",
+				"          START_DATE = BATCH_TIMESTAMP,",
+				"          END_DATE = toTimestamp(null())) ~> prepareNewRecord",
+				"splitNewChanged@ChangedRecords derive(IS_ACTIVE = true(),",
+				"          START_DATE = BATCH_TIMESTAMP,",
+				"          END_DATE = toTimestamp(null())) ~> prepareNewVersionChanged",
+				"prepareNewRecord, prepareNewVersionChanged union(byName: true)~> unionAllInserts",
+				"unionAllInserts alterRow(insertIf(true())) ~> alterRowInsert",
+				"updateOldRecord sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          AIRLINE_ID as decimal(38,0),",
+				"          AIRLINE_NAME as string,",
+				"          COUNTRY as string,",
+				"          RECORD_HASH as string,",
+				"          IS_ACTIVE as boolean,",
+				"          START_DATE as timestamp,",
+				"          END_DATE as timestamp",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:false,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['AIRLINE_ID','RECORD_HASH'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true,",
+				"     mapColumn(",
+				"          AIRLINE_ID = TGT_AIRLINE_ID,",
+				"          RECORD_HASH = TGT_RECORD_HASH,",
+				"          IS_ACTIVE,",
+				"          END_DATE",
+				"     )) ~> sinkExpireOld",
+				"alterRowInsert sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          AIRLINE_ID as decimal(38,0),",
+				"          AIRLINE_NAME as string,",
+				"          COUNTRY as string,",
+				"          RECORD_HASH as string,",
+				"          IS_ACTIVE as boolean,",
+				"          START_DATE as timestamp,",
+				"          END_DATE as timestamp",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true,",
+				"     mapColumn(",
+				"          AIRLINE_ID,",
+				"          AIRLINE_NAME,",
+				"          COUNTRY,",
+				"          RECORD_HASH,",
+				"          IS_ACTIVE,",
+				"          START_DATE,",
+				"          END_DATE",
+				"     )) ~> sinkInsertAllNew"
+			]
+		}
+	}
+}

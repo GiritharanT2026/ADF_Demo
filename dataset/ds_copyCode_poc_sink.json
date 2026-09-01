@@ -1,0 +1,42 @@
+{
+	"name": "ds_copyCode_poc_sink",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_snowflake_connection",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SnowflakeV2Table",
+		"schema": [
+			{
+				"name": "FLIGHT_ID",
+				"type": "NUMBER",
+				"precision": 38,
+				"scale": 0
+			},
+			{
+				"name": "FLIGHT_NUMBER",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "DEPARTURE_TIME",
+				"type": "TIME",
+				"precision": 0,
+				"scale": 9
+			},
+			{
+				"name": "ARRIVAL_TIME",
+				"type": "TIME",
+				"precision": 0,
+				"scale": 9
+			}
+		],
+		"typeProperties": {
+			"schema": "BRONZE",
+			"table": "DIMPASSENGER"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

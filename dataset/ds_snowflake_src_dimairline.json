@@ -1,0 +1,39 @@
+{
+	"name": "ds_snowflake_src_dimairline",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_snowflake_connection",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "snowflakeTosnowflake and scd2"
+		},
+		"annotations": [],
+		"type": "SnowflakeV2Table",
+		"schema": [
+			{
+				"name": "AIRLINE_ID",
+				"type": "NUMBER",
+				"precision": 38,
+				"scale": 0
+			},
+			{
+				"name": "AIRLINE_NAME",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "COUNTRY",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			}
+		],
+		"typeProperties": {
+			"schema": "PUBLIC",
+			"table": "DIMAIRLINE"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

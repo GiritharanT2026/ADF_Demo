@@ -1,0 +1,180 @@
+{
+	"name": "df_adls_scd2",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "adls_adf_scd2",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sourceCsvRaw"
+				},
+				{
+					"linkedService": {
+						"referenceName": "adls_adf_scd2",
+						"type": "LinkedServiceReference"
+					},
+					"name": "targetCsvScd2"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "adls_adf_scd2",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sinkUnifiedScd2Csv"
+				}
+			],
+			"transformations": [
+				{
+					"name": "createHash"
+				},
+				{
+					"name": "splitActiveHistory"
+				},
+				{
+					"name": "prefixTargetColumns"
+				},
+				{
+					"name": "joinActive"
+				},
+				{
+					"name": "classifyChange"
+				},
+				{
+					"name": "splitRecords"
+				},
+				{
+					"name": "expireOldRecord"
+				},
+				{
+					"name": "selectCleanExpired"
+				},
+				{
+					"name": "prepareNewRecord"
+				},
+				{
+					"name": "prepareNewVersion"
+				},
+				{
+					"name": "selectCleanUnchanged"
+				},
+				{
+					"name": "unionAllNewActive"
+				},
+				{
+					"name": "selectCleanNewActive"
+				},
+				{
+					"name": "unionCompleteScd2Dataset"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     BusinessKey as string ('airline_id'),",
+				"     SourceContainer as string ('adf-scd2'),",
+				"     SourceDirectory as string ('raw'),",
+				"     SourceFileName as string ('DIMAIRLINE.csv'),",
+				"     TargetContainer as string ('adf-scd2'),",
+				"     TargetDirectory as string ('bronze'),",
+				"     TargetFileName as string ('DIMAIRLINE_BRONZE_SCD2.csv'),",
+				"     PayloadColumns as string[] ([\"airline_name\",\"country\"])",
+				"}",
+				"source(useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: ($SourceContainer),",
+				"     folderPath: ($SourceDirectory),",
+				"     fileName: ($SourceFileName),",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> sourceCsvRaw",
+				"source(useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: true,",
+				"     format: 'delimited',",
+				"     fileSystem: ($TargetContainer),",
+				"     folderPath: ($TargetDirectory),",
+				"     fileName: ($TargetFileName),",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> targetCsvScd2",
+				"sourceCsvRaw derive(record_hash = sha2(256, toString(byNames($PayloadColumns))),",
+				"          batch_timestamp = currentTimestamp()) ~> createHash",
+				"targetCsvScd2 split(toString(byName('is_active')) == 'true' || toBoolean(byName('is_active')) == true(),",
+				"     disjoint: false) ~> splitActiveHistory@(ActiveRows, InactiveHistoricalRows)",
+				"splitActiveHistory@ActiveRows select(mapColumn(",
+				"          each(match(true()),",
+				"               concat('TGT_',$$) = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> prefixTargetColumns",
+				"createHash, prefixTargetColumns join(toString(byName($BusinessKey)) == toString(byName(concat('TGT_', $BusinessKey))),",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinActive",
+				"joinActive derive(CHANGE_TYPE = iif(isNull(byName(concat('TGT_', $BusinessKey))), 'NEW', iif(toString(byName('record_hash')) == toString(byName('TGT_record_hash')), 'UNCHANGED', 'CHANGED'))) ~> classifyChange",
+				"classifyChange split(CHANGE_TYPE == 'NEW',",
+				"     CHANGE_TYPE == 'CHANGED',",
+				"     CHANGE_TYPE == 'UNCHANGED',",
+				"     disjoint: false) ~> splitRecords@(NewRecords, ChangedRecords, UnchangedRecords)",
+				"splitRecords@ChangedRecords derive(is_active = 'false',",
+				"          end_date = toString(batch_timestamp, 'yyyy-MM-dd HH:mm:ss'),",
+				"          start_date = toString(byName('TGT_start_date'))) ~> expireOldRecord",
+				"expireOldRecord select(mapColumn(",
+				"          is_active,",
+				"          start_date,",
+				"          end_date,",
+				"          each(match(startsWith(name,'TGT_')&&!in(['TGT_is_active','TGT_start_date','TGT_end_date','TGT_IS_ACTIVE','TGT_START_DATE','TGT_END_DATE'],name)),",
+				"               replace($$,'TGT_','') = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectCleanExpired",
+				"splitRecords@NewRecords derive(is_active = 'true',",
+				"          start_date = toString(batch_timestamp, 'yyyy-MM-dd HH:mm:ss'),",
+				"          end_date = '9999-12-31 23:59:59') ~> prepareNewRecord",
+				"splitRecords@ChangedRecords derive(is_active = 'true',",
+				"          start_date = toString(batch_timestamp, 'yyyy-MM-dd HH:mm:ss'),",
+				"          end_date = '9999-12-31 23:59:59') ~> prepareNewVersion",
+				"splitRecords@UnchangedRecords select(mapColumn(",
+				"          each(match(startsWith(name,'TGT_')&&!in(['TGT_CHANGE_TYPE','TGT_batch_timestamp','TGT_BATCH_TIMESTAMP'],name)),",
+				"               replace($$,'TGT_','') = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectCleanUnchanged",
+				"prepareNewRecord, prepareNewVersion union(byName: true)~> unionAllNewActive",
+				"unionAllNewActive select(mapColumn(",
+				"          each(match(!startsWith(name,'TGT_')&&!in(['CHANGE_TYPE','batch_timestamp','BATCH_TIMESTAMP'],name)))",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectCleanNewActive",
+				"splitActiveHistory@InactiveHistoricalRows, selectCleanExpired, selectCleanUnchanged, selectCleanNewActive union(byName: true)~> unionCompleteScd2Dataset",
+				"unionCompleteScd2Dataset sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delimited',",
+				"     fileSystem: ($TargetContainer),",
+				"     folderPath: ($TargetDirectory),",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true,",
+				"     partitionFileNames:[($TargetFileName)],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sinkUnifiedScd2Csv"
+			]
+		}
+	}
+}
